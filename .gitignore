@@ -6,3 +6,4 @@ __pycache__/
 *.pdf
 exploration_output.txt
 .DS_Store
+.pytest_cache/
