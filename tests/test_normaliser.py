@@ -14,7 +14,7 @@ from phenoledger.normaliser import (
 
 class TestFontFixes:
     def test_null_byte(self):
-        assert fix_font_artifacts("Con\x00dent") == "Condent"
+        assert fix_font_artifacts("Con\x00dent") == "Confident"
 
     def test_beta_symbol(self):
         assert fix_font_artifacts("\uf062-Pinene") == "β-Pinene"

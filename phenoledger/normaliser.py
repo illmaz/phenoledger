@@ -1,12 +1,15 @@
 from decimal import Decimal, InvalidOperation
 
 FONT_FIXES: dict[str, str] = {
-    "\x00": "",          # null byte in "Conf\x00dent"
+    "\x00": "fi",        # null byte used as ﬁ ligature, e.g. "Con\x00dent" → "Confident"
     "\uf062": "β",       # β in β-Pinene, β-Caryophyllene
     "\uf061": "α",       # α in α-Humulene, α-Bisabolol
     "\uf044": "Δ",       # Δ in Δ9-THC
     "\uf067": "γ",       # γ in γ-Terpinene
     "\uf020": " ",       # private-use space
+    "\ufb01": "fi",      # \ufb01 ligature \u2192 "fi"
+    "\ufb02": "fl",      # \ufb02 ligature \u2192 "fl"
+    "(cid:215)": "fi",   # pdfplumber CID fallback for \ufb01 ligature
 }
 
 
