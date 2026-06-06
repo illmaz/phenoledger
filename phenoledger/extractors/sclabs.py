@@ -1,7 +1,6 @@
 import pdfplumber
 from pathlib import Path
-from phenoledger.normaliser import canonical_compound, parse_and_normalise
-
+from phenoledger.normaliser import canonical_compound, parse_and_normalise, parse_numeric
 
 def extract(pdf_path: str | Path) -> list[dict]:
     results = []
@@ -14,11 +13,11 @@ def extract(pdf_path: str | Path) -> list[dict]:
                 first_row = [cell for cell in table[0] if cell]
                 if not any("THCa" in str(cell) for cell in first_row):
                     continue
-                for row in table[1:]:
+                for row in table:
                     if not row or not row[0]:
                         continue
                     compound = canonical_compound(str(row[0]))
-                    value_mg_g, _ = parse_and_normalise(str(row[2] or ""), "mg/g")
+                    value_mg_g = parse_numeric(str(row[2] or ""))
                     value_pct, _ = parse_and_normalise(str(row[3] or ""), "%")
                     results.append({
                         "compound": compound,
