@@ -10,6 +10,9 @@ FONT_FIXES: dict[str, str] = {
     "\ufb01": "fi",      # \ufb01 ligature \u2192 "fi"
     "\ufb02": "fl",      # \ufb02 ligature \u2192 "fl"
     "(cid:215)": "fi",   # pdfplumber CID fallback for \ufb01 ligature
+    "Β": "B",            # uppercase Greek beta after .upper()
+    "Α": "A",            # uppercase Greek alpha after .upper()
+    "Γ": "G",            # uppercase Greek gamma after .upper()
 }
 
 
@@ -24,6 +27,8 @@ def is_doubled(text: str) -> bool:
     """Return True if the string appears to be a doubled PDF artifact."""
     t = text.strip()
     if len(t) < 4 or len(t) % 2 != 0:
+        return False
+    if t.isdigit():
         return False
     return all(t[i] == t[i + 1] for i in range(0, len(t) - 1, 2))
 
@@ -89,26 +94,25 @@ COMPOUND_ALIASES: dict[str, str] = {
     "CBLA":             "CBLA",
     "CBT":              "CBT",
     # Terpenes — Greek letters already fixed by font step
-    "β-CARYOPHYLLENE":  "BETA-CARYOPHYLLENE",
     "BETA-CARYOPHYLLENE": "BETA-CARYOPHYLLENE",
-    "β-MYRCENE":        "BETA-MYRCENE",
-    "β-PINENE":         "BETA-PINENE",
-    "β-BISABOLOL":      "BETA-BISABOLOL",  # some labs use β, others α
-    "α-BISABOLOL":      "ALPHA-BISABOLOL",
-    "α-HUMULENE":       "ALPHA-HUMULENE",
-    "α-PINENE":         "ALPHA-PINENE",
-    "α-TERPINENE":      "ALPHA-TERPINENE",
-    "γ-TERPINENE":      "GAMMA-TERPINENE",
-    "LIMONENE":         "LIMONENE",
     "LINALOOL":         "LINALOOL",
     "TERPINOLENE":      "TERPINOLENE",
     "MYRCENE":          "BETA-MYRCENE",    # some labs drop the β
     "CARYOPHYLLENE":    "BETA-CARYOPHYLLENE",
+    "B-CARYOPHYLLENE":  "BETA-CARYOPHYLLENE",
+    "B-MYRCENE":        "BETA-MYRCENE",
+    "B-PINENE":         "BETA-PINENE",
+    "B-BISABOLOL":      "BETA-BISABOLOL",
+    "A-BISABOLOL":      "ALPHA-BISABOLOL",
+    "A-HUMULENE":       "ALPHA-HUMULENE",
+    "A-PINENE":         "ALPHA-PINENE",
+    "A-TERPINENE":      "ALPHA-TERPINENE",
+    "G-TERPINENE":      "GAMMA-TERPINENE",
 }
 
 
 def canonical_compound(raw: str) -> str:
-    cleaned = clean_text(raw).upper().strip()
+    cleaned = fix_font_artifacts(clean_text(raw).upper().strip())
     return COMPOUND_ALIASES.get(cleaned, cleaned)
 
 
@@ -132,7 +136,7 @@ def parse_numeric(raw: str) -> Decimal | None:
 
 def normalise_to_pct(value: Decimal, unit: str) -> Decimal | None:
     unit = clean_text(unit).lower().strip()
-    if unit in ("%", "% wt", "% w/w", ""):
+    if unit in ("%", "% wt", "% w/w"):
         return value
     if unit == "mg/g":
         return value / 10
@@ -144,9 +148,12 @@ def normalise_to_pct(value: Decimal, unit: str) -> Decimal | None:
 
 
 def parse_and_normalise(raw_value: str, unit: str) -> tuple[Decimal | None, bool]:
+    cleaned = clean_text(raw_value).upper().strip()
+    if cleaned in SENTINEL_VALUES or cleaned.startswith("<"):
+        return None, False
     value = parse_numeric(raw_value)
     if value is None:
-        return None, False
+        return None, True  # unparseable garbage — needs review
     normalised = normalise_to_pct(value, unit)
     needs_review = normalised is None
     return normalised, needs_review

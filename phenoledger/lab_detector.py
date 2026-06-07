@@ -1,6 +1,7 @@
 from enum import Enum
 import pdfplumber
 from phenoledger.normaliser import fix_font_artifacts
+import logging
 
 class LabFamily(Enum):
     SCLABS = "sclabs"
@@ -13,15 +14,16 @@ class LabFamily(Enum):
     ANALYTICS_LABS = "analytics_labs"
 
 _SIGNATURES: list[tuple[str, LabFamily]] = [
+    # Specific lab names first — must take priority over LIMS platform signatures
     ("SC Laboratories",          LabFamily.SCLABS),
     ("sclabs.com",               LabFamily.SCLABS),
-    ("Confident LIMS",           LabFamily.CONFIDENT_LIMS),
-    ("Confident Cannabis",       LabFamily.CONFIDENT_CANNABIS),
-    ("condentcannabis.com",      LabFamily.CONFIDENT_CANNABIS),
     ("FESA Labs",                LabFamily.FESA_LABS),
     ("New Bloom Labs",           LabFamily.NEW_BLOOM),
     ("Marin Analytics",          LabFamily.MARIN_ANALYTICS),
     ("Analytics Labs",           LabFamily.ANALYTICS_LABS),
+    # LIMS platform signatures last — some labs embed these in footers
+    ("Confident LIMS",           LabFamily.CONFIDENT_LIMS),
+    ("Confident Cannabis",       LabFamily.CONFIDENT_CANNABIS),
 ]
 
 def detect_from_text(page_one_text: str) -> LabFamily:
@@ -37,5 +39,6 @@ def detect(pdf_path: str) -> LabFamily:
         with pdfplumber.open(pdf_path) as pdf:
             text = pdf.pages[0].extract_text() or ""
         return detect_from_text(text)
-    except Exception:
+    except Exception as e:
+        logging.warning("Failed to open PDF %s: %s", pdf_path, e)
         return LabFamily.UNKNOWN

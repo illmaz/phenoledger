@@ -25,6 +25,15 @@ class TestFontFixes:
     def test_no_change_clean_text(self):
         assert fix_font_artifacts("THCA") == "THCA"
 
+    def test_fi_unicode_ligature(self):
+        assert fix_font_artifacts("Conﬁdent") == "Confident"
+
+    def test_fl_unicode_ligature(self):
+        assert fix_font_artifacts("reﬂect") == "reflect"
+
+    def test_cid_fi_placeholder(self):
+        assert fix_font_artifacts("Con(cid:215)dent") == "Confident"
+
 
 class TestDoubledFix:
     def test_detects_doubled(self):
@@ -42,6 +51,9 @@ class TestDoubledFix:
     def test_no_op_normal(self):
         assert fix_doubled("28.065") == "28.065"
 
+    def test_no_false_positive_repeated_digits(self):
+        assert is_doubled("2200") is False
+
 
 class TestCanonicalCompound:
     def test_thca_variants(self):
@@ -55,6 +67,9 @@ class TestCanonicalCompound:
 
     def test_unknown_compound_stored_uppercased(self):
         assert canonical_compound("ExoTHC") == "EXOTHC"
+
+    def test_greek_terpene_alias(self):
+        assert canonical_compound("β-Caryophyllene") == "BETA-CARYOPHYLLENE"
 
 
 class TestParseNumeric:
@@ -83,6 +98,20 @@ class TestNormalise:
 
     def test_unknown_unit_returns_none(self):
         assert normalise_to_pct(Decimal("1.0"), "furlongs") is None
+
+    def test_pct_wt_unchanged(self):
+        assert normalise_to_pct(Decimal("10.0"), "% wt") == Decimal("10.0")
+
+    def test_pct_ww_unchanged(self):
+        assert normalise_to_pct(Decimal("10.0"), "% w/w") == Decimal("10.0")
+
+    def test_ppm_to_pct(self):
+        assert normalise_to_pct(Decimal("10000"), "ppm") == Decimal("1.0")
+
+    def test_full_pipeline_unknown_unit_needs_review(self):
+        value, needs_review = parse_and_normalise("10.0", "furlongs")
+        assert value is None
+        assert needs_review is True
 
     def test_full_pipeline_nd(self):
         value, needs_review = parse_and_normalise("ND", "%")
