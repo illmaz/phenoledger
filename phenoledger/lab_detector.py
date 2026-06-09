@@ -2,6 +2,7 @@ from enum import Enum
 import pdfplumber
 from phenoledger.normaliser import fix_font_artifacts
 import logging
+from pathlib import Path
 
 class LabFamily(Enum):
     SCLABS = "sclabs"
@@ -34,7 +35,7 @@ def detect_from_text(page_one_text: str) -> LabFamily:
     return LabFamily.UNKNOWN
 
 
-def detect(pdf_path: str) -> LabFamily:
+def detect(pdf_path: str | Path) -> LabFamily:
     try:
         with pdfplumber.open(pdf_path) as pdf:
             text = pdf.pages[0].extract_text() or ""
