@@ -8,7 +8,8 @@ PDF = Path("data/03_z_georgia_pie_sclabs.pdf")
 
 @pytest.fixture(scope="module")
 def sclabs_results():
-    return extract(PDF)
+    result = extract(PDF)
+    return result["cannabinoids"]
 
 
 class TestSCLabsExtractor:

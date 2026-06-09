@@ -1,13 +1,58 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, FileText } from 'lucide-react'
 import { StatCard, Panel, Badge, Row, Grid } from '../ui'
-import { coaRecords } from '../../data/index'
+import { fetchUploads } from '../../api'
 
-export default function COALibrary() {
+function fmtDate(iso) {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function shortId(uuid) {
+  return uuid?.slice(0, 8).toUpperCase() ?? '—'
+}
+
+function statusVariant(s) {
+  if (s === 'confirmed') return 'ok'
+  if (s === 'failed') return 'warn'
+  return 'gray'
+}
+
+function statusLabel(s) {
+  if (s === 'confirmed') return 'Processed'
+  if (s === 'failed') return 'Failed'
+  if (s === 'needs_review') return 'Review'
+  return s ?? 'Pending'
+}
+
+export default function COALibrary({ refreshKey }) {
+  const [uploads, setUploads] = useState(null)
   const [query, setQuery] = useState('')
-  const filtered = coaRecords.filter(r =>
-    !query || [r.strain, r.lab, r.id, r.date].some(f => f.toLowerCase().includes(query.toLowerCase()))
-  )
+
+  useEffect(() => {
+    setUploads(null)
+    fetchUploads()
+      .then(setUploads)
+      .catch(() => setUploads([]))
+  }, [refreshKey])
+
+  const data = uploads ?? []
+
+  const filtered = query
+    ? data.filter(u =>
+        [u.name, u.lab, u.filename].filter(Boolean).some(f =>
+          f.toLowerCase().includes(query.toLowerCase())
+        )
+      )
+    : data
+
+  const labCount = new Set(data.map(u => u.lab).filter(Boolean)).size
+  const thisMonth = data.filter(u => {
+    if (!u.created_at) return false
+    const d = new Date(u.created_at)
+    const now = new Date()
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+  }).length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -15,7 +60,7 @@ export default function COALibrary() {
         <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
         <input
           value={query} onChange={e => setQuery(e.target.value)}
-          placeholder="Search COAs by strain, batch ID, lab, or date…"
+          placeholder="Search COAs by strain, batch ID, or lab…"
           style={{
             width: '100%', padding: '8px 12px 8px 30px', fontSize: 13,
             border: '0.5px solid var(--border)', borderRadius: 8,
@@ -25,29 +70,41 @@ export default function COALibrary() {
       </div>
 
       <Grid cols={4} gap={8}>
-        <StatCard label="Total COAs"  value="47" />
-        <StatCard label="Labs"        value="4" />
-        <StatCard label="Strains"     value="12" />
-        <StatCard label="This Month"  value="6" />
+        <StatCard label="Total COAs"  value={uploads === null ? '—' : data.length} />
+        <StatCard label="Labs"        value={uploads === null ? '—' : labCount} />
+        <StatCard label="Strains"     value="—" />
+        <StatCard label="This Month"  value={uploads === null ? '—' : thisMonth} />
       </Grid>
 
       <Panel title="All COA Records" fullWidth>
-        {filtered.map((r, i) => (
-          <Row key={r.id} last={i === filtered.length - 1}>
-            <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--text-3)', width: 120, flexShrink: 0 }}>{r.id}</span>
-            <span style={{ flex: 1 }}>{r.strain}</span>
-            <Badge variant="gray">{r.lab}</Badge>
-            <span style={{ color: 'var(--text-2)', fontSize: 11, width: 90, textAlign: 'right' }}>{r.date}</span>
-            <button style={{
-              background: 'none', border: 'none', color: '#60a5fa', fontSize: 11,
-              display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer',
-            }}>
-              <FileText size={12} /> View
-            </button>
-          </Row>
-        ))}
-        {filtered.length === 0 && (
-          <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '12px 0' }}>No records match your search.</div>
+        {uploads === null ? (
+          <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '12px 0' }}>Loading…</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '12px 0' }}>
+            {query ? 'No records match your search.' : 'No uploads yet.'}
+          </div>
+        ) : (
+          filtered.map((u, i) => (
+            <Row key={u.id} last={i === filtered.length - 1}>
+              <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--text-3)', width: 80, flexShrink: 0 }}>
+                {shortId(u.id)}
+              </span>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {u.name}
+              </span>
+              <Badge variant={u.lab ? 'gray' : 'gray'}>{u.lab ?? 'Unknown lab'}</Badge>
+              <Badge variant={statusVariant(u.status)}>{statusLabel(u.status)}</Badge>
+              <span style={{ color: 'var(--text-2)', fontSize: 11, width: 90, textAlign: 'right', flexShrink: 0 }}>
+                {fmtDate(u.created_at)}
+              </span>
+              <button style={{
+                background: 'none', border: 'none', color: '#60a5fa', fontSize: 11,
+                display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer', flexShrink: 0,
+              }}>
+                <FileText size={12} /> View
+              </button>
+            </Row>
+          ))
         )}
       </Panel>
     </div>

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
+import { X } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { StatCard, Panel, Badge, Row, Grid, TOOLTIP_STYLE, AXIS_TICK, GRID_COLOR } from '../ui'
-import { alerts } from '../../data/index'
 import { fetchUploads, fetchConsistency } from '../../api'
 
 function statusVariant(s) {
@@ -19,9 +19,72 @@ function statusLabel(s) {
   return s
 }
 
+function computeDrift(fleet) {
+  if (!fleet || fleet.length === 0) return []
+  const groups = {}
+  for (const r of fleet) {
+    if (!groups[r.strain]) groups[r.strain] = []
+    groups[r.strain].push(r.thca)
+  }
+  const drifts = []
+  for (const [strain, vals] of Object.entries(groups)) {
+    if (vals.length < 2) continue
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length
+    const latest = vals[vals.length - 1]
+    const delta = latest - avg
+    if (Math.abs(delta) > 2) {
+      drifts.push({
+        label: `${strain} – THCA`,
+        detail: `${delta > 0 ? '↑' : '↓'} ${Math.abs(delta).toFixed(1)}%`,
+      })
+    }
+  }
+  return drifts
+}
+
+function DriftModal({ drift, onClose }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+        zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#222', border: '0.5px solid #3a3a3a', borderRadius: 10,
+          padding: '1.25rem', width: 360, maxWidth: '90vw',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>Drifting Compounds</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', display: 'flex' }}>
+            <X size={14} />
+          </button>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 12 }}>
+          Batches where the latest value deviates more than ±2% from the strain average.
+        </div>
+        {drift.map((a, i) => (
+          <Row key={a.label} last={i === drift.length - 1}>
+            <span style={{ color: 'var(--text-2)' }}>{a.label}</span>
+            <Badge variant="warn">{a.detail}</Badge>
+          </Row>
+        ))}
+        {drift.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--text-3)', paddingTop: 4 }}>No drifting compounds.</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Overview({ refreshKey }) {
   const [uploads, setUploads] = useState(null)
   const [fleet, setFleet] = useState(null)
+  const [driftOpen, setDriftOpen] = useState(false)
 
   useEffect(() => {
     setUploads(null)
@@ -37,13 +100,37 @@ export default function Overview({ refreshKey }) {
       .catch(() => setFleet([]))
   }, [refreshKey])
 
+  const drift = computeDrift(fleet)
+  const strainCount = fleet ? new Set(fleet.map(r => r.strain)).size : null
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {driftOpen && <DriftModal drift={drift} onClose={() => setDriftOpen(false)} />}
+
       <Grid cols={4} gap={8}>
-        <StatCard label="Active Strains"   value="12"     sub="3 added this month" />
-        <StatCard label="COAs on File"     value={uploads ? uploads.length : '—'} sub="All labs verified" />
-        <StatCard label="Avg Consistency"  value={<>91<span style={{ fontSize: 12, color: 'var(--text-2)' }}>/100</span></>} sub="Fleet-wide score" />
-        <StatCard label="Flagged Batches"  value="2"      sub="Drift detected" subVariant="warn" />
+        <StatCard
+          label="Active Strains"
+          value={strainCount ?? '—'}
+          sub={fleet ? `${fleet.length} total uploads` : 'Loading…'}
+        />
+        <StatCard
+          label="COAs on File"
+          value={uploads ? uploads.length : '—'}
+          sub="All labs"
+        />
+        <StatCard
+          label="Avg Consistency"
+          value="—"
+          sub="Coming in Phase 2"
+        />
+        <div onClick={() => setDriftOpen(true)} style={{ cursor: 'pointer' }}>
+          <StatCard
+            label="Flagged Batches"
+            value={fleet ? drift.length : '—'}
+            sub={fleet ? (drift.length ? 'Click to view drift' : 'All within tolerance') : 'Loading…'}
+            subVariant={drift.length > 0 ? 'warn' : undefined}
+          />
+        </div>
       </Grid>
 
       <Grid cols={2} gap={10}>
@@ -89,15 +176,27 @@ export default function Overview({ refreshKey }) {
         </Panel>
 
         <Panel title="Consistency Alerts">
-          {alerts.map((a, i) => (
-            <Row key={a.label} last={i === alerts.length - 1}>
-              <span style={{ color: 'var(--text-2)' }}>{a.label}</span>
-              <Badge variant="warn">{a.detail}</Badge>
-            </Row>
-          ))}
-          <div style={{ fontSize: 11, color: 'var(--text-3)', paddingTop: 10 }}>
-            All other strains within tolerance
-          </div>
+          {fleet === null ? (
+            <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px 0' }}>Loading…</div>
+          ) : drift.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px 0' }}>
+              {fleet.length < 2
+                ? 'Upload more COAs to detect drift across batches.'
+                : 'All strains within tolerance.'}
+            </div>
+          ) : (
+            <>
+              {drift.map((a, i) => (
+                <Row key={a.label} last={i === drift.length - 1}>
+                  <span style={{ color: 'var(--text-2)' }}>{a.label}</span>
+                  <Badge variant="warn">{a.detail}</Badge>
+                </Row>
+              ))}
+              <div style={{ fontSize: 11, color: 'var(--text-3)', paddingTop: 10 }}>
+                All other strains within tolerance
+              </div>
+            </>
+          )}
         </Panel>
       </Grid>
     </div>

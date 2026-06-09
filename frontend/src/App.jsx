@@ -14,7 +14,7 @@ import APIIntegrations from './components/screens/APIIntegrations'
 
 const SCREENS = {
   'overview':      { bc: ['Overview', 'Dashboard'],                Component: Overview        },
-  'strains':       { bc: ['Strains', 'Cookies & Cream F1'],        Component: Strains         },
+  'strains':       { bc: ['Strains', 'All strains'],                Component: Strains         },
   'coa-library':   { bc: ['COA Library', 'All records'],           Component: COALibrary      },
   'lineage':       { bc: ['Genetic Lineage', 'Cookies & Cream F1'],Component: Lineage         },
   'mother-plants': { bc: ['Mother Plants', 'Registry'],            Component: MotherPlants    },

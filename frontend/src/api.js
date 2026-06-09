@@ -12,6 +12,18 @@ export async function fetchConsistency() {
   return res.json()
 }
 
+export async function fetchStrains() {
+  const res = await fetch(`${BASE}/strains`)
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function fetchStrainCannabinoids(strainName) {
+  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/cannabinoids`)
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
 export async function uploadCOA(file) {
   const form = new FormData()
   form.append('file', file)

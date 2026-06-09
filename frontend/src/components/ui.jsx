@@ -1,6 +1,7 @@
 const BADGE = {
   ok:     { bg: 'rgba(74,222,128,0.15)',  color: '#4ade80' },
   warn:   { bg: 'rgba(251,191,36,0.15)',  color: '#fbbf24' },
+  danger: { bg: 'rgba(248,113,113,0.15)', color: '#f87171' },
   info:   { bg: 'rgba(96,165,250,0.15)',  color: '#60a5fa' },
   purple: { bg: 'rgba(167,139,250,0.15)', color: '#a78bfa' },
   gray:   { bg: 'rgba(255,255,255,0.07)', color: '#888888' },

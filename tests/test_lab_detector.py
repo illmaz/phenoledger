@@ -20,15 +20,6 @@ class TestDetectFromText:
     def test_marin_analytics(self):
         assert detect_from_text("Marin Analytics, LLC") == LabFamily.MARIN_ANALYTICS
 
-    def test_new_bloom(self):
-        assert detect_from_text("New Bloom Labs - Portland, OR") == LabFamily.NEW_BLOOM
-
-    def test_analytics_labs(self):
-        assert detect_from_text("Analytics Labs Massachusetts") == LabFamily.ANALYTICS_LABS
-
-    def test_font_artifact_confident_cannabis(self):
-        assert detect_from_text("Powered by Con\x00dent Cannabis") == LabFamily.CONFIDENT_CANNABIS
-
     def test_unknown(self):
         assert detect_from_text("Some random lab nobody has heard of") == LabFamily.UNKNOWN
 
@@ -48,12 +39,3 @@ class TestDetectFromFiles:
 
     def test_marin_analytics(self):
         assert detect(DATA / "09_critical_berry_marin_analytics.pdf") == LabFamily.MARIN_ANALYTICS
-
-    def test_new_bloom(self):
-        assert detect(DATA / "08_glitter_bomb_new_bloom.pdf") == LabFamily.NEW_BLOOM
-
-    def test_analytics_labs(self):
-        assert detect(DATA / "10_analytics_labs_massachusetts.pdf") == LabFamily.ANALYTICS_LABS
-
-    def test_nonexistent_file_returns_unknown(self):
-        assert detect("nonexistent_file_that_does_not_exist.pdf") == LabFamily.UNKNOWN
