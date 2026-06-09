@@ -213,10 +213,12 @@ function StrainRow({ strain, thca, upload_count, status, stability, last, onClic
 // ── StrainList ───────────────────────────────────────────────────────────────
 
 function StrainList({ strains, onSelect }) {
-  const [query, setQuery]         = useState('')
-  const [view, setView]           = useState('grid')
-  const [labFilter, setLabFilter] = useState('all')
-  const [thcaFilter, setThcaFilter] = useState('all')
+  const [query, setQuery]                             = useState('')
+  const [view, setView]                               = useState('grid')
+  const [labFilter, setLabFilter]                     = useState('all')
+  const [consistencyFilter, setConsistencyFilter]     = useState('all')
+  const [sampleTypeFilter, setSampleTypeFilter]       = useState('all')
+  const [sortBy, setSortBy]                           = useState('recent')
 
   if (strains === null) {
     return (
@@ -226,96 +228,98 @@ function StrainList({ strains, onSelect }) {
     )
   }
 
-  const availableLabs = [...new Set(strains.map(s => s.lab).filter(Boolean))].sort()
-
-  const filtered = strains
+  const base = strains
     .filter(s => !query || s.strain.toLowerCase().includes(query.toLowerCase()))
     .filter(s => labFilter === 'all' || s.lab === labFilter)
     .filter(s => {
-      const t = s.thca ?? 0
-      if (thcaFilter === 'low')    return t < 15
-      if (thcaFilter === 'medium') return t >= 15 && t <= 25
-      if (thcaFilter === 'high')   return t > 25
+      if (consistencyFilter === 'stable') return s.status === 'excellent' || s.status === 'good'
+      if (consistencyFilter === 'watch')  return s.status === 'watch'
+      if (consistencyFilter === 'drift')  return s.status === 'drift'
       return true
     })
+    .filter(s => sampleTypeFilter === 'all' || s.sample_type === sampleTypeFilter)
 
-  const isFiltering = labFilter !== 'all' || thcaFilter !== 'all' || Boolean(query)
+  const filtered = [...base].sort((a, b) => {
+    if (sortBy === 'thca_high')      return (b.thca ?? 0) - (a.thca ?? 0)
+    if (sortBy === 'stability_low')  return (a.stability ?? 0) - (b.stability ?? 0)
+    if (sortBy === 'az')             return a.strain.localeCompare(b.strain)
+    return 0  // 'recent' preserves API order (newest first)
+  })
+
+  const isFiltering = labFilter !== 'all' || consistencyFilter !== 'all' || sampleTypeFilter !== 'all' || Boolean(query)
   const anyFiltered = filtered.length > 0
   const avg = anyFiltered ? filtered.reduce((s, x) => s + (x.thca ?? 0), 0) / filtered.length : 0
   const hi  = anyFiltered ? Math.max(...filtered.map(x => x.thca ?? 0)) : 0
   const lo  = anyFiltered ? Math.min(...filtered.map(x => x.thca ?? Infinity)) : 0
 
-  const btnBase = {
-    fontSize: 11, padding: '4px 10px', border: 'none',
-    background: 'transparent', cursor: 'pointer',
+  const pillGroup = (options, active, setActive) => (
+    <div style={{ display: 'flex', border: '0.5px solid var(--border)', borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
+      {options.map((f, i) => (
+        <button
+          key={f.key}
+          onClick={() => setActive(f.key)}
+          style={{
+            fontSize: 11, padding: '4px 9px', border: 'none', cursor: 'pointer',
+            borderLeft: i > 0 ? '0.5px solid var(--border)' : 'none',
+            background: active === f.key ? 'rgba(255,255,255,0.07)' : 'transparent',
+            color: active === f.key ? 'var(--text)' : 'var(--text-2)',
+          }}
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+  )
+
+  const selectStyle = {
+    fontSize: 11, padding: '4px 8px', border: '0.5px solid var(--border)', borderRadius: 6,
+    background: 'var(--card)', color: 'var(--text-2)', cursor: 'pointer', outline: 'none', flexShrink: 0,
   }
   const toggleBase = {
-    padding: '4px 7px', border: 'none',
-    background: 'transparent', cursor: 'pointer',
+    padding: '4px 7px', border: 'none', background: 'transparent', cursor: 'pointer',
     display: 'flex', alignItems: 'center',
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-      {/* Row 1: Search bar (full width) */}
-      <div style={{ position: 'relative' }}>
-        <Search size={13} style={{
-          position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)',
-          color: 'var(--text-3)', pointerEvents: 'none',
-        }} />
-        <input
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search strains…"
-          style={{
-            width: '100%', padding: '6px 10px 6px 28px', fontSize: 12,
-            border: '0.5px solid var(--border)', borderRadius: 6,
-            background: 'var(--card)', color: 'var(--text)', outline: 'none',
-            boxSizing: 'border-box',
-          }}
-        />
-      </div>
-
-      {/* Row 2: Lab dropdown | THCA range | View toggle */}
+      {/* Filter bar — single row */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
 
-        {/* Lab filter */}
-        <select
-          value={labFilter}
-          onChange={e => setLabFilter(e.target.value)}
-          style={{
-            fontSize: 11, padding: '4px 8px', border: '0.5px solid var(--border)', borderRadius: 6,
-            background: 'var(--card)', color: labFilter === 'all' ? 'var(--text-2)' : 'var(--text)',
-            cursor: 'pointer', outline: 'none', flexShrink: 0,
-          }}
-        >
-          <option value="all">All labs</option>
-          {availableLabs.map(lab => (
-            <option key={lab} value={lab}>{lab}</option>
-          ))}
-        </select>
-
-        {/* THCA range buttons */}
-        <div style={{ display: 'flex', border: '0.5px solid var(--border)', borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
-          {THCA_FILTERS.map((f, i) => (
-            <button
-              key={f.key}
-              onClick={() => setThcaFilter(f.key)}
-              title={f.key === 'low' ? '< 15%' : f.key === 'medium' ? '15 – 25%' : f.key === 'high' ? '> 25%' : undefined}
-              style={{
-                ...btnBase,
-                borderLeft: i > 0 ? '0.5px solid var(--border)' : 'none',
-                background: thcaFilter === f.key ? 'rgba(255,255,255,0.07)' : 'transparent',
-                color: thcaFilter === f.key ? 'var(--text)' : 'var(--text-2)',
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
+        {/* Search */}
+        <div style={{ position: 'relative', flex: 1, minWidth: 120 }}>
+          <Search size={13} style={{
+            position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)',
+            color: 'var(--text-3)', pointerEvents: 'none',
+          }} />
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search strains…"
+            style={{
+              width: '100%', padding: '5px 10px 5px 28px', fontSize: 12,
+              border: '0.5px solid var(--border)', borderRadius: 6,
+              background: 'var(--card)', color: 'var(--text)', outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
         </div>
 
-        <div style={{ flex: 1 }} />
+        {/* Lab */}
+        <select value={labFilter} onChange={e => setLabFilter(e.target.value)} style={selectStyle}>
+          {LAB_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+
+        {/* Consistency */}
+        {pillGroup(CONSISTENCY_FILTERS, consistencyFilter, setConsistencyFilter)}
+
+        {/* Sample type */}
+        {pillGroup(SAMPLE_TYPE_FILTERS, sampleTypeFilter, setSampleTypeFilter)}
+
+        {/* Sort */}
+        <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={selectStyle}>
+          {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
 
         {/* View toggle */}
         <div style={{ display: 'flex', border: '0.5px solid var(--border)', borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
@@ -343,7 +347,7 @@ function StrainList({ strains, onSelect }) {
         </div>
       </div>
 
-      {/* Stat cards — only when there's data to show */}
+      {/* Stat summary */}
       {strains.length > 0 && (
         <Grid cols={4} gap={8}>
           <StatCard

@@ -104,8 +104,7 @@ async def upload_coa(file: UploadFile):
     if lab == LabFamily.SCLABS:
         extracted = sclabs_extract(tmp_path)
     elif lab == LabFamily.CONFIDENT_LIMS:
-        raw = confident_lims_extract(tmp_path)
-        extracted = {"cannabinoids": raw, "terpenes": []}
+        extracted = confident_lims_extract(tmp_path)
     else:
         extracted = {"cannabinoids": [], "terpenes": []}
 
@@ -172,12 +171,11 @@ def list_uploads():
 
 @app.get("/uploads/count")
 def uploads_count():
-    rows = supabase.table("coa_uploads") \
-        .select("id", count="exact") \
-        .eq("farm_id", FARM_ID) \
-        .execute()
+    rows = (supabase.table("coa_uploads")
+        .select("*", count="exact")
+        .eq("farm_id", FARM_ID)
+        .execute())
     return {"count": rows.count or 0}
-
 
 @app.get("/consistency")
 def consistency():
