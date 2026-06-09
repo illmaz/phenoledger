@@ -7,3 +7,4 @@ __pycache__/
 exploration_output.txt
 .DS_Store
 .pytest_cache/
+frontend/node_modules/
