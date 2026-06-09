@@ -68,9 +68,6 @@ export default function Sidebar({ active, onNavigate }) {
         <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text)' }}>
           PhenoLedger
         </div>
-        <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
-          Irie Seeds · Farm Portal
-        </div>
       </div>
 
       <nav style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>

@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
-import { Bell, Upload, ChevronRight } from 'lucide-react'
+import { Bell, Upload, ChevronRight, LogOut } from 'lucide-react'
 import { uploadCOA } from '../api'
 
-export default function Topbar({ breadcrumb, onUploadSuccess }) {
+export default function Topbar({ breadcrumb, onUploadSuccess, onLogout }) {
   const [section, page] = breadcrumb
   const fileRef = useRef()
   const [uploadState, setUploadState] = useState(null) // null | 'uploading' | 'ok' | 'error'
@@ -52,6 +52,17 @@ export default function Topbar({ breadcrumb, onUploadSuccess }) {
           display: 'inline-flex', alignItems: 'center', gap: 4,
         }}>
           <Bell size={13} />
+        </button>
+        <button
+          onClick={onLogout}
+          title="Sign out"
+          style={{
+            fontSize: 11, padding: '4px 10px', border: '0.5px solid var(--border)',
+            borderRadius: 6, background: 'transparent', color: 'var(--text-2)',
+            display: 'inline-flex', alignItems: 'center', gap: 4, cursor: 'pointer',
+          }}
+        >
+          <LogOut size={13} />
         </button>
         <input
           ref={fileRef}

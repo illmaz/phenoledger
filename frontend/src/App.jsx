@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
+import Login from './components/screens/Login'
 import Overview from './components/screens/Overview'
 import Strains from './components/screens/Strains'
 import COALibrary from './components/screens/COALibrary'
@@ -26,15 +27,25 @@ const SCREENS = {
 }
 
 export default function App() {
-  const [active, setActive] = useState('overview')
+  const [token, setToken]       = useState(null)
+  const [active, setActive]     = useState('overview')
   const [uploadKey, setUploadKey] = useState(0)
+
+  if (!token) {
+    return <Login onLogin={setToken} />
+  }
+
   const { bc, Component } = SCREENS[active] || SCREENS['overview']
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       <Sidebar active={active} onNavigate={setActive} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <Topbar breadcrumb={bc} onUploadSuccess={() => setUploadKey(k => k + 1)} />
+        <Topbar
+          breadcrumb={bc}
+          onUploadSuccess={() => setUploadKey(k => k + 1)}
+          onLogout={() => setToken(null)}
+        />
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
           <Component refreshKey={uploadKey} />
         </div>
