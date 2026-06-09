@@ -6,8 +6,8 @@ from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from api.dependencies import s3, supabase
 from phenoledger.lab_detector import detect, LabFamily
-from phenoledger.extractors.sclabs import extract as sclabs_extract
-from phenoledger.extractors.confident_lims import extract as confident_lims_extract
+from phenoledger.extractors.sclabs import extract as sclabs_extract, extract_header as sclabs_header
+from phenoledger.extractors.confident_lims import extract as confident_lims_extract, extract_header as confident_lims_header
 
 FARM_ID = "fd1c1598-8769-4da9-a885-2f74bca047d6"
 
@@ -129,7 +129,25 @@ async def upload_coa(file: UploadFile):
             "value_raw": float(r["value_mg_g"]) if r["value_mg_g"] else None,
             "unit_raw": "mg/g",
         }).execute()
+    
+    if lab == LabFamily.SCLABS:
+        header = sclabs_header(tmp_path)
+    elif lab == LabFamily.CONFIDENT_LIMS:
+        header = confident_lims_header(tmp_path)
+    else:
+        header = {}
 
+    if header:
+        supabase.table("coa_reports").update({
+            "sample_name": header.get("sample_name"),
+            "report_date": header.get("report_date"),
+            "collection_date": header.get("collection_date"),
+            "received_date": header.get("received_date"),
+            "overall_pass_fail": header.get("overall_pass_fail"),
+            "reported_batch_number": header.get("reported_batch_number"),
+        }).eq("id", report_id).execute()
+
+    
     supabase.table("coa_uploads").update({
         "extraction_status": "confirmed",
     }).eq("id", upload_id).execute()
@@ -148,7 +166,7 @@ async def upload_coa(file: UploadFile):
 @app.get("/uploads")
 def list_uploads():
     rows = supabase.table("coa_uploads") \
-        .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name)") \
+        .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date, sample_name)") \
         .eq("farm_id", FARM_ID) \
         .order("created_at", desc=True) \
         .limit(10) \
@@ -164,7 +182,7 @@ def list_uploads():
             "filename": r["original_filename"],
             "status": r["extraction_status"],
             "lab": LAB_DISPLAY.get(lab_raw, lab_raw) if lab_raw else None,
-            "created_at": r["created_at"],
+            "created_at": reports[0].get("report_date") or r["created_at"] if reports else r["created_at"],
         })
     return result
 
@@ -286,7 +304,7 @@ def strain_cannabinoids(strain_name: str):
 @app.get("/strain/{strain_name}/batches")
 def strain_batches(strain_name: str):
     reports_rows = supabase.table("coa_reports") \
-        .select("id, upload_id, sample_name, coa_uploads(original_filename, extraction_status, created_at)") \
+        .select("id, upload_id, sample_name, report_date, coa_uploads(original_filename, extraction_status, created_at)")\
         .eq("farm_id", FARM_ID) \
         .execute()
     reports_data: list[dict] = reports_rows.data  # type: ignore[assignment]
@@ -298,7 +316,7 @@ def strain_batches(strain_name: str):
         if name == strain_name:
             matching.append({
                 "report_id": r["id"],
-                "date": upload.get("created_at"),
+                "date": r.get("report_date") or upload.get("created_at"),
                 "status": upload.get("extraction_status"),
             })
     if not matching:
@@ -374,3 +392,21 @@ def strain_terpenes(strain_name: str):
         key=lambda x: x["value_pct"],
         reverse=True,
     )
+
+@app.get("/upload/{upload_id}/pdf")
+def get_pdf_url(upload_id: str):
+    row = supabase.table("coa_uploads") \
+        .select("s3_bucket, s3_key, farm_id") \
+        .eq("id", upload_id) \
+        .eq("farm_id", FARM_ID) \
+        .single() \
+        .execute()
+    if not row.data:
+        raise HTTPException(status_code=404, detail="upload not found")
+    upload = row.data
+    url = s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": upload["s3_bucket"], "Key": upload["s3_key"]},
+        ExpiresIn=900,
+    )
+    return {"url": url}

@@ -27,3 +27,5 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 #root { height: 100vh; overflow: hidden; }
 button { font-family: inherit; cursor: pointer; }
 input { font-family: inherit; }
+
+@keyframes spin { to { transform: rotate(360deg); } }

@@ -39,3 +39,27 @@ def extract(pdf_path: str | Path) -> dict:
                 end = text.index("Analysis performed") if "Analysis performed" in text else len(text)
                 terpenes = _parse_block(text[start:end])
     return {"cannabinoids": cannabinoids, "terpenes": terpenes}
+
+def extract_header(pdf_path: str | Path) -> dict:
+    with pdfplumber.open(pdf_path) as pdf:
+        text = pdf.pages[0].extract_text() or ""
+
+    header = {}
+
+    m = re.search(r'Strain:\s+(.+)', text)
+    if m:
+        header["sample_name"] = m.group(1).strip()
+
+    m = re.search(r'Sample Received:\s+(\d{2}/\d{2}/\d{4})', text)
+    if m:
+        header["received_date"] = m.group(1)
+
+    m = re.search(r'Order Completed:\s+(\d{2}/\d{2}/\d{4})', text)
+    if m:
+        header["report_date"] = m.group(1)
+
+    m = re.search(r'Sample ID:\s+(\S+)', text)
+    if m:
+        header["reported_batch_number"] = m.group(1)
+
+    return header

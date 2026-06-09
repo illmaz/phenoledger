@@ -1,6 +1,8 @@
 import pdfplumber
 from pathlib import Path
 from phenoledger.normaliser import canonical_compound, parse_and_normalise, parse_numeric
+import re
+from datetime import date
 
 
 def extract(pdf_path: str | Path) -> dict:
@@ -34,3 +36,32 @@ def extract(pdf_path: str | Path) -> dict:
                         "needs_review": needs_review,
                     })
     return {"cannabinoids": cannabinoids, "terpenes": terpenes}
+
+
+def extract_header(pdf_path: str | Path) -> dict:
+    with pdfplumber.open(pdf_path) as pdf:
+        text = pdf.pages[0].extract_text() or ""
+
+    header = {}
+
+    m = re.search(r'DATE ISSUED\s+(\d{2}/\d{2}/\d{4})', text)
+    if m:
+        header["report_date"] = m.group(1)
+
+    m = re.search(r'SAMPLE NAME:\s+(.+)', text)
+    if m:
+        header["sample_name"] = m.group(1).strip()
+
+    m = re.search(r'Date Collected:\s+(\d{1,2}/\d{2}/\d{4})', text)
+    if m:
+        header["collection_date"] = m.group(1)
+
+    m = re.search(r'Date Received:\s+(\d{1,2}/\d{2}/\d{4})', text)
+    if m:
+        header["received_date"] = m.group(1)
+
+    m = re.search(r'OVERALL BATCH RESULT:\s+(\w+)', text)
+    if m:
+        header["overall_pass_fail"] = m.group(1)
+
+    return header

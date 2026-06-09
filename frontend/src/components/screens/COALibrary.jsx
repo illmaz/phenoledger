@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Search, FileText } from 'lucide-react'
+import { Search, FileText, Loader } from 'lucide-react'
 import { StatCard, Panel, Badge, Row, Grid } from '../ui'
-import { fetchUploads } from '../../api'
+import { fetchUploads, fetchUploadPdf } from '../../api'
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -28,6 +28,21 @@ function statusLabel(s) {
 export default function COALibrary({ refreshKey }) {
   const [uploads, setUploads] = useState(null)
   const [query, setQuery] = useState('')
+  const [loadingPdf, setLoadingPdf] = useState({})
+  const [pdfError, setPdfError] = useState({})
+
+  async function openPdf(id) {
+    setLoadingPdf(p => ({ ...p, [id]: true }))
+    setPdfError(p => ({ ...p, [id]: false }))
+    try {
+      const url = await fetchUploadPdf(id)
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch {
+      setPdfError(p => ({ ...p, [id]: true }))
+    } finally {
+      setLoadingPdf(p => ({ ...p, [id]: false }))
+    }
+  }
 
   useEffect(() => {
     setUploads(null)
@@ -97,11 +112,23 @@ export default function COALibrary({ refreshKey }) {
               <span style={{ color: 'var(--text-2)', fontSize: 11, width: 90, textAlign: 'right', flexShrink: 0 }}>
                 {fmtDate(u.created_at)}
               </span>
-              <button style={{
-                background: 'none', border: 'none', color: '#60a5fa', fontSize: 11,
-                display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer', flexShrink: 0,
-              }}>
-                <FileText size={12} /> View
+              <button
+                onClick={() => openPdf(u.id)}
+                disabled={loadingPdf[u.id]}
+                title={pdfError[u.id] ? 'Failed to load PDF — try again' : undefined}
+                style={{
+                  background: 'none', border: 'none', fontSize: 11, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', gap: 3, cursor: loadingPdf[u.id] ? 'default' : 'pointer',
+                  color: pdfError[u.id] ? '#f87171' : '#60a5fa',
+                  opacity: loadingPdf[u.id] ? 0.6 : 1,
+                }}
+              >
+                {loadingPdf[u.id]
+                  ? <><Loader size={12} style={{ animation: 'spin 1s linear infinite' }} /> Loading</>
+                  : pdfError[u.id]
+                    ? <><FileText size={12} /> Retry</>
+                    : <><FileText size={12} /> View</>
+                }
               </button>
             </Row>
           ))

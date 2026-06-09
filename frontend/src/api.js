@@ -43,6 +43,13 @@ export async function fetchUploadsCount() {
   return data.count
 }
 
+export async function fetchUploadPdf(uploadId) {
+  const res = await fetch(`${BASE}/upload/${encodeURIComponent(uploadId)}/pdf`)
+  if (!res.ok) throw new Error(`${res.status}`)
+  const data = await res.json()
+  return data.url
+}
+
 export async function uploadCOA(file) {
   const form = new FormData()
   form.append('file', file)

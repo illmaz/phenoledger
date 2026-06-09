@@ -76,6 +76,27 @@ function colorFor(compound) {
   return '#888888'
 }
 
+const TERPENE_DISPLAY = {
+  'BETA-CARYOPHYLLENE': 'β-Caryophyllene',
+  'ALPHA-HUMULENE':     'α-Humulene',
+  'BETA-MYRCENE':       'β-Myrcene',
+  'BETA-PINENE':        'β-Pinene',
+  'ALPHA-PINENE':       'α-Pinene',
+  'ALPHA-BISABOLOL':    'α-Bisabolol',
+  'GAMMA-TERPINENE':    'γ-Terpinene',
+  'TRANS-B-FARNESENE':  'trans-β-Farnesene',
+}
+
+function formatTerpene(compound) {
+  const key = compound.toUpperCase().replace(/[\s_]+/g, '-')
+  if (TERPENE_DISPLAY[key]) return TERPENE_DISPLAY[key]
+  return compound
+    .replace(/-/g, ' ')
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
 function terpeneColor(compound) {
   const key = compound.toUpperCase().replace(/[\s_]+/g, '-')
   return TERPENE_COLOR[key] ?? '#A855F7'
@@ -504,7 +525,7 @@ function BatchTable({ batches }) {
                     background: terpeneColor(b.top_terpene.compound),
                   }} />
                   <span style={{ ...cell, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {b.top_terpene.compound}
+                    {formatTerpene(b.top_terpene.compound)}
                   </span>
                   <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
                     {b.top_terpene.value_pct.toFixed(3)}%
@@ -625,7 +646,7 @@ function StrainDetail({ strain, thca, uploadCount, status, stability, onBack }) 
             ) : terpenes.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px 0' }}>No terpene data on file.</div>
             ) : terpenes.map(t => (
-              <HBar key={t.compound} label={t.compound} value={t.value_pct ?? 0} max={terpMax} color={terpeneColor(t.compound)} showPct />
+              <HBar key={t.compound} label={formatTerpene(t.compound)} value={t.value_pct ?? 0} max={terpMax} color={terpeneColor(t.compound)} showPct />
             ))}
           </Panel>
         </Grid>
