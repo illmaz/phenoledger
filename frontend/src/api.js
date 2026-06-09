@@ -24,6 +24,25 @@ export async function fetchStrainCannabinoids(strainName) {
   return res.json()
 }
 
+export async function fetchStrainTerpenes(strainName) {
+  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/terpenes`)
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function fetchStrainBatches(strainName) {
+  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/batches`)
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function fetchUploadsCount() {
+  const res = await fetch(`${BASE}/uploads/count`)
+  if (!res.ok) throw new Error(`${res.status}`)
+  const data = await res.json()
+  return data.count
+}
+
 export async function uploadCOA(file) {
   const form = new FormData()
   form.append('file', file)

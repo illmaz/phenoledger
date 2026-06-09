@@ -33,6 +33,19 @@ def _display_name(filename: str) -> str:
     name = name.rsplit('.', 1)[0]
     return name.replace('_', ' ').title()
 
+_CONCENTRATE_KW = ['rosin', 'wax', 'live resin', 'hash', 'badder', 'batter', 'sauce',
+                   'diamonds', 'crumble', 'shatter', 'kief', 'sift', 'bubble', 'ice water']
+_EXTRACT_KW     = ['distillate', 'isolate', 'tincture', 'rso', 'oil', 'cartridge',
+                   'extract', 'co2', 'nano', 'tincture']
+
+def _infer_sample_type(name: str) -> str:
+    lower = name.lower()
+    if any(k in lower for k in _CONCENTRATE_KW):
+        return 'concentrate'
+    if any(k in lower for k in _EXTRACT_KW):
+        return 'extract'
+    return 'flower'
+
 app = FastAPI()
 
 app.add_middleware(
@@ -157,6 +170,15 @@ def list_uploads():
     return result
 
 
+@app.get("/uploads/count")
+def uploads_count():
+    rows = supabase.table("coa_uploads") \
+        .select("id", count="exact") \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    return {"count": rows.count or 0}
+
+
 @app.get("/consistency")
 def consistency():
     rows = supabase.table("cannabinoid_results") \
@@ -182,7 +204,7 @@ def consistency():
 @app.get("/strains")
 def list_strains():
     rows = supabase.table("cannabinoid_results") \
-        .select("value_pct, created_at, coa_reports(sample_name, coa_uploads(original_filename))") \
+        .select("value_pct, created_at, coa_reports(sample_name, lab_name, coa_uploads(original_filename))") \
         .eq("farm_id", FARM_ID) \
         .eq("compound_name", "THCA") \
         .not_.is_("value_pct", "null") \
@@ -191,19 +213,31 @@ def list_strains():
     data: list[dict] = rows.data  # type: ignore[assignment]
     # Collect all readings per strain; dict preserves insertion order so index 0 is latest
     strain_vals: dict[str, list[float]] = {}
+    strain_labs: dict[str, str | None] = {}
     for r in data:
         report = r.get("coa_reports") or {}
         upload = report.get("coa_uploads") or {}
         filename = upload.get("original_filename", "")
         strain = report.get("sample_name") or (_display_name(filename) if filename else "Unknown")
         strain_vals.setdefault(strain, []).append(float(r["value_pct"]))
+        if strain not in strain_labs:
+            lab_raw = report.get("lab_name")
+            strain_labs[strain] = LAB_DISPLAY.get(lab_raw, lab_raw) if lab_raw else None
     result = []
     for strain, vals in strain_vals.items():
         avg = sum(vals) / len(vals)
-        max_dev = max(abs(v - avg) for v in vals) if len(vals) > 1 else 0
-        if max_dev < 1.0:
-            status = "stable"
-        elif max_dev < 2.0:
+        if len(vals) > 1 and avg > 0:
+            variance = sum((v - avg) ** 2 for v in vals) / len(vals)
+            std_dev = variance ** 0.5
+            cv = (std_dev / avg) * 100
+        else:
+            cv = 0.0
+        stability = round(max(0.0, 100.0 - cv))
+        if cv < 5:
+            status = "excellent"
+        elif cv < 10:
+            status = "good"
+        elif cv < 15:
             status = "watch"
         else:
             status = "drift"
@@ -212,6 +246,9 @@ def list_strains():
             "thca": round(vals[0], 2),
             "upload_count": len(vals),
             "status": status,
+            "stability": stability,
+            "lab": strain_labs.get(strain),
+            "sample_type": _infer_sample_type(strain),
         })
     return result
 
@@ -241,6 +278,98 @@ def strain_cannabinoids(strain_name: str):
     # Average across batches so each compound appears once
     grouped: dict[str, list[float]] = {}
     for r in cann_data:
+        grouped.setdefault(r["compound_name"], []).append(float(r["value_pct"]))
+    return sorted(
+        [{"compound": name, "value_pct": round(sum(vals) / len(vals), 4)} for name, vals in grouped.items()],
+        key=lambda x: x["value_pct"],
+        reverse=True,
+    )
+
+@app.get("/strain/{strain_name}/batches")
+def strain_batches(strain_name: str):
+    reports_rows = supabase.table("coa_reports") \
+        .select("id, upload_id, sample_name, coa_uploads(original_filename, extraction_status, created_at)") \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    reports_data: list[dict] = reports_rows.data  # type: ignore[assignment]
+    matching = []
+    for r in reports_data:
+        upload = r.get("coa_uploads") or {}
+        filename = upload.get("original_filename", "")
+        name = r.get("sample_name") or (_display_name(filename) if filename else "Unknown")
+        if name == strain_name:
+            matching.append({
+                "report_id": r["id"],
+                "date": upload.get("created_at"),
+                "status": upload.get("extraction_status"),
+            })
+    if not matching:
+        return []
+    matching_ids = [m["report_id"] for m in matching]
+    cann_rows = supabase.table("cannabinoid_results") \
+        .select("report_id, compound_name, value_pct") \
+        .in_("report_id", matching_ids) \
+        .in_("compound_name", ["THCA", "CBD"]) \
+        .not_.is_("value_pct", "null") \
+        .execute()
+    cann_data: list[dict] = cann_rows.data  # type: ignore[assignment]
+    cann_by_report: dict[str, dict] = {}
+    for r in cann_data:
+        cann_by_report.setdefault(r["report_id"], {})[r["compound_name"]] = float(r["value_pct"])
+    terp_rows = supabase.table("terpene_results") \
+        .select("report_id, compound_name, value_pct") \
+        .in_("report_id", matching_ids) \
+        .not_.is_("value_pct", "null") \
+        .gt("value_pct", 0) \
+        .order("value_pct", desc=True) \
+        .execute()
+    terp_data: list[dict] = terp_rows.data  # type: ignore[assignment]
+    top_terp: dict[str, dict] = {}
+    for r in terp_data:
+        rid = r["report_id"]
+        if rid not in top_terp:
+            top_terp[rid] = {"compound": r["compound_name"], "value_pct": round(float(r["value_pct"]), 4)}
+    result = []
+    for m in sorted(matching, key=lambda x: x["date"] or "", reverse=True):
+        rid = m["report_id"]
+        c = cann_by_report.get(rid, {})
+        thca = c.get("THCA")
+        cbd = c.get("CBD")
+        result.append({
+            "report_id": rid,
+            "date": m["date"],
+            "thca": round(thca, 2) if thca is not None else None,
+            "cbd": round(cbd, 4) if cbd is not None else None,
+            "top_terpene": top_terp.get(rid),
+            "status": m["status"],
+        })
+    return result
+
+
+@app.get("/strain/{strain_name}/terpenes")
+def strain_terpenes(strain_name: str):
+    reports_rows = supabase.table("coa_reports") \
+        .select("id, sample_name, coa_uploads(original_filename)") \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    reports_data: list[dict] = reports_rows.data  # type: ignore[assignment]
+    matching_ids = []
+    for r in reports_data:
+        upload = r.get("coa_uploads") or {}
+        filename = upload.get("original_filename", "")
+        name = r.get("sample_name") or (_display_name(filename) if filename else "Unknown")
+        if name == strain_name:
+            matching_ids.append(r["id"])
+    if not matching_ids:
+        return []
+    rows = supabase.table("terpene_results") \
+        .select("compound_name, value_pct") \
+        .in_("report_id", matching_ids) \
+        .not_.is_("value_pct", "null") \
+        .execute()
+    data: list[dict] = rows.data  # type: ignore[assignment]
+    grouped: dict[str, list[float]] = {}
+    for r in data:
         grouped.setdefault(r["compound_name"], []).append(float(r["value_pct"]))
     return sorted(
         [{"compound": name, "value_pct": round(sum(vals) / len(vals), 4)} for name, vals in grouped.items()],

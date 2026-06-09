@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { StatCard, Panel, Badge, Row, Grid, TOOLTIP_STYLE, AXIS_TICK, GRID_COLOR } from '../ui'
-import { fetchUploads, fetchConsistency } from '../../api'
+import { fetchUploads, fetchConsistency, fetchStrains, fetchUploadsCount } from '../../api'
 
 function statusVariant(s) {
   if (s === 'confirmed') return 'ok'
@@ -84,6 +84,8 @@ function DriftModal({ drift, onClose }) {
 export default function Overview({ refreshKey }) {
   const [uploads, setUploads] = useState(null)
   const [fleet, setFleet] = useState(null)
+  const [strains, setStrains] = useState(null)
+  const [coaCount, setCoaCount] = useState(null)
   const [driftOpen, setDriftOpen] = useState(false)
 
   useEffect(() => {
@@ -100,8 +102,25 @@ export default function Overview({ refreshKey }) {
       .catch(() => setFleet([]))
   }, [refreshKey])
 
+  useEffect(() => {
+    setStrains(null)
+    fetchStrains()
+      .then(setStrains)
+      .catch(() => setStrains([]))
+  }, [refreshKey])
+
+  useEffect(() => {
+    setCoaCount(null)
+    fetchUploadsCount()
+      .then(setCoaCount)
+      .catch(() => setCoaCount(0))
+  }, [refreshKey])
+
   const drift = computeDrift(fleet)
-  const strainCount = fleet ? new Set(fleet.map(r => r.strain)).size : null
+  const avgStability = strains && strains.length > 0
+    ? Math.round(strains.reduce((s, x) => s + (x.stability ?? 0), 0) / strains.length)
+    : 0
+  const flaggedCount = strains ? strains.filter(s => s.status === 'watch' || s.status === 'drift').length : 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -110,25 +129,26 @@ export default function Overview({ refreshKey }) {
       <Grid cols={4} gap={8}>
         <StatCard
           label="Active Strains"
-          value={strainCount ?? '—'}
-          sub={fleet ? `${fleet.length} total uploads` : 'Loading…'}
+          value={strains ? strains.length : '—'}
+          sub={strains ? `${strains.length} tracked` : 'Loading…'}
         />
         <StatCard
           label="COAs on File"
-          value={uploads ? uploads.length : '—'}
+          value={coaCount !== null ? coaCount : '—'}
           sub="All labs"
         />
         <StatCard
           label="Avg Consistency"
-          value="—"
-          sub="Coming in Phase 2"
+          value={strains ? `${avgStability}/100` : '—'}
+          sub={strains ? (avgStability >= 90 ? 'Excellent' : avgStability >= 80 ? 'Good' : 'Needs attention') : 'Loading…'}
+          subVariant={strains && avgStability < 80 ? 'warn' : undefined}
         />
         <div onClick={() => setDriftOpen(true)} style={{ cursor: 'pointer' }}>
           <StatCard
             label="Flagged Batches"
-            value={fleet ? drift.length : '—'}
-            sub={fleet ? (drift.length ? 'Click to view drift' : 'All within tolerance') : 'Loading…'}
-            subVariant={drift.length > 0 ? 'warn' : undefined}
+            value={strains ? flaggedCount : '—'}
+            sub={strains ? (flaggedCount ? 'Click to view drift' : 'All within tolerance') : 'Loading…'}
+            subVariant={flaggedCount > 0 ? 'warn' : undefined}
           />
         </div>
       </Grid>
