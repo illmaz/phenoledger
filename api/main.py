@@ -1,7 +1,9 @@
 import os
+import re
 import uuid
 import tempfile
 from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from api.dependencies import s3, supabase
 from phenoledger.lab_detector import detect, LabFamily
 from phenoledger.extractors.sclabs import extract as sclabs_extract
@@ -9,7 +11,36 @@ from phenoledger.extractors.confident_lims import extract as confident_lims_extr
 
 FARM_ID = "fd1c1598-8769-4da9-a885-2f74bca047d6"
 
+LAB_DISPLAY = {
+    "sclabs":             "SC Labs",
+    "confident_cannabis": "Confident Cannabis",
+    "confident_lims":     "Confident LIMS",
+    "fesa_labs":          "FESA Labs",
+    "new_bloom":          "New Bloom Labs",
+    "marin_analytics":    "Marin Analytics",
+    "analytics_labs":     "Analytics Labs",
+}
+
+_LAB_SUFFIX = re.compile(
+    r'_(sclabs|confident_cannabis|confident_lims|fesa_labs|new_bloom'
+    r'|marin_analytics|analytics_labs|massachusetts|illinois)',
+    re.IGNORECASE,
+)
+
+def _display_name(filename: str) -> str:
+    name = re.sub(r'^\d+_', '', filename)
+    name = _LAB_SUFFIX.sub('', name)
+    name = name.rsplit('.', 1)[0]
+    return name.replace('_', ' ').title()
+
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5174"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -86,3 +117,50 @@ async def upload_coa(file: UploadFile):
         "lab": lab.value,
         "compounds_extracted": len(results),
     }
+
+
+@app.get("/uploads")
+def list_uploads():
+    rows = supabase.table("coa_uploads") \
+        .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name)") \
+        .eq("farm_id", FARM_ID) \
+        .order("created_at", desc=True) \
+        .limit(10) \
+        .execute()
+    data: list[dict] = rows.data  # type: ignore[assignment]
+    result = []
+    for r in data:
+        reports = r.get("coa_reports") or []
+        lab_raw = reports[0]["lab_name"] if reports else None
+        result.append({
+            "id": r["id"],
+            "name": _display_name(r["original_filename"]),
+            "filename": r["original_filename"],
+            "status": r["extraction_status"],
+            "lab": LAB_DISPLAY.get(lab_raw, lab_raw) if lab_raw else None,
+            "created_at": r["created_at"],
+        })
+    return result
+
+
+@app.get("/consistency")
+def consistency():
+    rows = supabase.table("cannabinoid_results") \
+        .select("value_pct, coa_reports(sample_name, coa_uploads(original_filename))") \
+        .eq("farm_id", FARM_ID) \
+        .eq("compound_name", "THCA") \
+        .not_.is_("value_pct", "null") \
+        .order("created_at", desc=True) \
+        .limit(12) \
+        .execute()
+    data: list[dict] = rows.data  # type: ignore[assignment]
+    result = []
+    for r in data:
+        report = r.get("coa_reports") or {}
+        upload = report.get("coa_uploads") or {}
+        filename = upload.get("original_filename", "")
+        strain = report.get("sample_name") or (_display_name(filename) if filename else "Unknown")
+        val = r.get("value_pct")
+        if val is not None:
+            result.append({"strain": strain, "thca": round(float(val), 2)})
+    return result
