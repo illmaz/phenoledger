@@ -121,14 +121,17 @@ async def upload_coa(file: UploadFile):
     for r in extracted["terpenes"]:
         if r["value_pct"] is None:
             continue
-        supabase.table("terpene_results").insert({
-            "farm_id": FARM_ID,
-            "report_id": report_id,
-            "compound_name": r["compound"],
-            "value_pct": float(r["value_pct"]),
-            "value_raw": float(r["value_mg_g"]) if r["value_mg_g"] else None,
-            "unit_raw": "mg/g",
-        }).execute()
+        try:
+            supabase.table("terpene_results").insert({
+                "farm_id": FARM_ID,
+                "report_id": report_id,
+                "compound_name": r["compound"],
+                "value_pct": float(r["value_pct"]),
+                "value_raw": float(r["value_mg_g"]) if r["value_mg_g"] else None,
+                "unit_raw": "mg/g",
+            }).execute()
+        except Exception as e:
+            print(f"Terpene insert failed: {r['compound']}: {e}")
     
     if lab == LabFamily.SCLABS:
         header = sclabs_header(tmp_path)

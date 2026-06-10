@@ -22,6 +22,17 @@ def extract(pdf_path: str | Path) -> dict:
                     continue
                 first_row = [cell for cell in table[0] if cell]
                 is_cannabinoid = any("thca" in str(cell).lower() for cell in first_row)
+                KNOWN_TERPENES = {
+                    "pinene", "myrcene", "limonene", "linalool", "caryophyllene",
+                    "humulene", "terpinolene", "ocimene", "bisabolol", "guaiol",
+                    "camphene", "geraniol", "terpineol", "farnesene", "nerolidol"
+                }
+                is_terpene = not is_cannabinoid and any(
+                    any(t in str(cell).lower() for t in KNOWN_TERPENES)
+                    for cell in first_row if cell
+                )
+                if not is_cannabinoid and not is_terpene:
+                    continue
                 target = cannabinoids if is_cannabinoid else terpenes
                 for row in table:
                     if not row or len(row) < 4 or not row[0]:
