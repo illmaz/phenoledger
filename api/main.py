@@ -8,6 +8,8 @@ from api.dependencies import s3, supabase
 from phenoledger.lab_detector import detect, LabFamily
 from phenoledger.extractors.sclabs import extract as sclabs_extract, extract_header as sclabs_header
 from phenoledger.extractors.confident_lims import extract as confident_lims_extract, extract_header as confident_lims_header
+from phenoledger.extractors.botanacor import extract as botanacor_extract, extract_header as botanacor_header
+from phenoledger.extractors.analytics_labs import extract as analytics_labs_extract, extract_header as analytics_labs_header
 
 FARM_ID = "fd1c1598-8769-4da9-a885-2f74bca047d6"
 
@@ -103,8 +105,12 @@ async def upload_coa(file: UploadFile):
 
     if lab == LabFamily.SCLABS:
         extracted = sclabs_extract(tmp_path)
+    elif lab == LabFamily.BOTANACOR:
+        extracted = botanacor_extract(tmp_path)
     elif lab == LabFamily.CONFIDENT_LIMS:
         extracted = confident_lims_extract(tmp_path)
+    elif lab == LabFamily.ANALYTICS_LABS:
+        extracted = analytics_labs_extract(tmp_path)
     else:
         extracted = {"cannabinoids": [], "terpenes": []}
 
@@ -135,8 +141,12 @@ async def upload_coa(file: UploadFile):
     
     if lab == LabFamily.SCLABS:
         header = sclabs_header(tmp_path)
+    elif lab == LabFamily.BOTANACOR:
+        header = botanacor_header(tmp_path)
     elif lab == LabFamily.CONFIDENT_LIMS:
         header = confident_lims_header(tmp_path)
+    elif lab == LabFamily.ANALYTICS_LABS:
+        header = analytics_labs_header(tmp_path)
     else:
         header = {}
 

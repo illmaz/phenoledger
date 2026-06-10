@@ -11,11 +11,13 @@ class LabFamily(Enum):
     FESA_LABS = "fesa_labs"
     NEW_BLOOM = "new_bloom"
     MARIN_ANALYTICS = "marin_analytics"
+    BOTANACOR = "botanacor"
     UNKNOWN = "unknown"
     ANALYTICS_LABS = "analytics_labs"
 
 _SIGNATURES: list[tuple[str, LabFamily]] = [
     # Specific lab names first — must take priority over LIMS platform signatures
+    ("SC Laboratories, Inc.",    LabFamily.BOTANACOR),
     ("SC Laboratories",          LabFamily.SCLABS),
     ("sclabs.com",               LabFamily.SCLABS),
     ("FESA Labs",                LabFamily.FESA_LABS),
