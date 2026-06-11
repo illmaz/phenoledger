@@ -201,6 +201,37 @@ export async function deleteStrain(strainName) {
   return res.json()
 }
 
+export async function fetchTrials() {
+  const res = await apiFetch(`${BASE}/trials`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function createTrial(payload) {
+  const res = await apiFetch(`${BASE}/trials`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function deleteTrial(id) {
+  const res = await apiFetch(`${BASE}/trials/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
 export async function uploadCOA(file) {
   const form = new FormData()
   form.append('file', file)

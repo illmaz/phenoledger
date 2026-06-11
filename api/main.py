@@ -937,7 +937,7 @@ def delete_propagation(prop_id: str, current_user = Depends(verify_token)):
 @app.get("/trials")
 def list_trials(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("trials") \
-        .select("*, strains(name), mother_plants(plant_code)") \
+        .select("*, strains(name), mother_plants(plant_code), trial_coa_links(report_id)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
@@ -1102,6 +1102,12 @@ def trials_analytics_summary(auth = Depends(verify_token)):
             by_grow_type[gt]["yield_per_plant"].append(
                 float(trial["dry_weight_g"]) / int(trial["plant_count"])
             )
+        if trial.get("dry_weight_g") and trial.get("wet_weight_g") and float(trial["wet_weight_g"]) > 0:
+            if "efficiency_vals" not in by_grow_type[gt]:
+                by_grow_type[gt]["efficiency_vals"] = []
+            by_grow_type[gt]["efficiency_vals"].append(
+                float(trial["dry_weight_g"]) / float(trial["wet_weight_g"]) * 100
+            )
     summary = []
     for gt, vals in by_grow_type.items():
         thca_list = vals["thca_vals"]
@@ -1111,5 +1117,65 @@ def trials_analytics_summary(auth = Depends(verify_token)):
             "trial_count": len(data),
             "avg_thca": round(sum(thca_list) / len(thca_list), 2) if thca_list else None,
             "avg_yield_per_plant_g": round(sum(yield_list) / len(yield_list), 1) if yield_list else None,
+            "avg_yield_efficiency_pct": round(sum(vals.get("efficiency_vals", [])) / len(vals.get("efficiency_vals", [])), 1) if vals.get("efficiency_vals") else None,
         })
     return summary
+
+# ── Trial Events ──────────────────────────────────────────────────────────────
+
+@app.get("/trials/{trial_id}/events")
+def list_trial_events(trial_id: str, auth = Depends(verify_token)):
+    trial_check = auth["client"].table("trials") \
+        .select("id") \
+        .eq("id", trial_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    if not trial_check.data:
+        raise HTTPException(status_code=404, detail="trial not found")
+    rows = auth["client"].table("trial_events") \
+        .select("*") \
+        .eq("trial_id", trial_id) \
+        .order("event_date", desc=False) \
+        .execute()
+    return rows.data
+
+@app.post("/trials/{trial_id}/events")
+def create_trial_event(trial_id: str, payload: dict, current_user = Depends(verify_token)):
+    trial_check = supabase.table("trials") \
+        .select("id") \
+        .eq("id", trial_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    if not trial_check.data:
+        raise HTTPException(status_code=404, detail="trial not found")
+    allowed_types = {"pesticide", "nutrient", "anomaly", "observation"}
+    if payload.get("event_type") not in allowed_types:
+        raise HTTPException(status_code=400, detail=f"event_type must be one of {allowed_types}")
+    if not payload.get("event_date"):
+        raise HTTPException(status_code=400, detail="event_date is required")
+    row = supabase.table("trial_events").insert({
+        "trial_id": trial_id,
+        "farm_id": FARM_ID,
+        "event_date": payload["event_date"],
+        "event_type": payload["event_type"],
+        "product_name": payload.get("product_name"),
+        "quantity": payload.get("quantity"),
+        "unit": payload.get("unit"),
+        "notes": payload.get("notes"),
+    }).execute()
+    row_data: list[dict] = row.data  # type: ignore[assignment]
+    if not row_data:
+        raise HTTPException(status_code=500, detail="event creation failed")
+    return row_data[0]
+
+@app.delete("/trials/{trial_id}/events/{event_id}")
+def delete_trial_event(trial_id: str, event_id: str, current_user = Depends(verify_token)):
+    result = supabase.table("trial_events") \
+        .delete() \
+        .eq("id", event_id) \
+        .eq("trial_id", trial_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="event not found")
+    return {"deleted": event_id}
