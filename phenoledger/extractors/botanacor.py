@@ -63,10 +63,23 @@ def extract_header(pdf_path: str | Path) -> dict:
     with pdfplumber.open(pdf_path) as pdf:
         text = pdf.pages[0].extract_text() or ""
     header = {}
-    m = re.search(r'Reported:\s+(\d{2}\w{3}\d{4})', text)
-    if m:
-        header["report_date"] = m.group(1)
-    m = re.search(r'Received:\s+(\d{2}\w{3}\d{4})', text)
-    if m:
-        header["received_date"] = m.group(1)
+    # Dates are in format 20Mar2025 — search anywhere in text
+    dates = re.findall(r'(\d{2}[A-Za-z]{3}\d{4})', text)
+    if dates:
+        header["report_date"] = dates[0]
+    if len(dates) > 1:
+        header["received_date"] = dates[-1]
+    # Strain name: use positional extraction — strain words appear at top ~75-85px
+    # The garbled text is two columns overlapping; strain name words are on the right
+    try:
+        with pdfplumber.open(pdf_path) as pdf2:
+            words = pdf2.pages[0].extract_words()
+        strain_words = [
+            w["text"] for w in words
+            if 72 < w["top"] < 79 and w["x0"] > 180
+        ]
+        if strain_words:
+            header["sample_name"] = " ".join(strain_words)
+    except Exception:
+        pass
     return header

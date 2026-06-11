@@ -291,51 +291,23 @@ def consistency(auth = Depends(verify_token)):
 
 @app.get("/strains")
 def list_strains(auth = Depends(verify_token)):
-    rows = auth["client"].table("cannabinoid_results") \
-        .select("value_pct, created_at, coa_reports(sample_name, lab_name, coa_uploads(original_filename))") \
+    rows = auth["client"].table("strain_consistency") \
+        .select("strain_id, strain_name, batch_count, avg_pct, stability_score, status, farm_id") \
         .eq("farm_id", FARM_ID) \
         .eq("compound_name", "THCA") \
-        .not_.is_("value_pct", "null") \
-        .order("created_at", desc=True) \
         .execute()
     data: list[dict] = rows.data  # type: ignore[assignment]
-    strain_vals: dict[str, list[float]] = {}
-    strain_labs: dict[str, str | None] = {}
-    for r in data:
-        report = r.get("coa_reports") or {}
-        upload = report.get("coa_uploads") or {}
-        filename = upload.get("original_filename", "")
-        strain = report.get("sample_name") or (_display_name(filename) if filename else "Unknown")
-        strain_vals.setdefault(strain, []).append(float(r["value_pct"]))
-        if strain not in strain_labs:
-            lab_raw = report.get("lab_name")
-            strain_labs[strain] = LAB_DISPLAY.get(lab_raw, lab_raw) if lab_raw else None
     result = []
-    for strain, vals in strain_vals.items():
-        avg = sum(vals) / len(vals)
-        if len(vals) > 1 and avg > 0:
-            variance = sum((v - avg) ** 2 for v in vals) / len(vals)
-            std_dev = variance ** 0.5
-            cv = (std_dev / avg) * 100
-        else:
-            cv = 0.0
-        stability = round(max(0.0, 100.0 - cv))
-        if cv < 5:
-            status = "excellent"
-        elif cv < 10:
-            status = "good"
-        elif cv < 15:
-            status = "watch"
-        else:
-            status = "drift"
+    for r in data:
+        stability = round(float(r["stability_score"] or 0))
         result.append({
-            "strain": strain,
-            "thca": round(vals[0], 2),
-            "upload_count": len(vals),
-            "status": status,
+            "strain_id": r["strain_id"],
+            "strain": r["strain_name"],
+            "thca": round(float(r["avg_pct"] or 0), 2),
+            "upload_count": r["batch_count"],
+            "status": r["status"],
             "stability": stability,
-            "lab": strain_labs.get(strain),
-            "sample_type": _infer_sample_type(strain),
+            "sample_type": _infer_sample_type(r["strain_name"]),
         })
     return result
 
@@ -489,15 +461,25 @@ def get_pdf_url(upload_id: str, auth = Depends(verify_token)):
 
 
 @app.delete("/strain/{strain_name}")
-def delete_strain(strain_name: str, current_user = Depends(verify_token)):
+def delete_strain(strain_id: str, current_user = Depends(verify_token)):
     now = datetime.now(timezone.utc).isoformat()
     reports = supabase.table("coa_reports") \
         .select("id, upload_id") \
         .eq("farm_id", FARM_ID) \
-        .eq("sample_name", strain_name) \
+        .eq("strain_id", strain_id) \
         .is_("deleted_at", "null") \
         .execute()
     data: list[dict] = reports.data or []  # type: ignore[assignment]
+    report_ids = [r["id"] for r in data]
+    if report_ids:
+        supabase.table("cannabinoid_results") \
+            .delete() \
+            .in_("report_id", report_ids) \
+            .execute()
+        supabase.table("terpene_results") \
+            .delete() \
+            .in_("report_id", report_ids) \
+            .execute()
     for r in data:
         supabase.table("coa_reports") \
             .update({"deleted_at": now}) \
@@ -508,7 +490,12 @@ def delete_strain(strain_name: str, current_user = Depends(verify_token)):
                 .update({"deleted_at": now}) \
                 .eq("id", r["upload_id"]) \
                 .execute()
-    return {"deleted": strain_name}
+    supabase.table("strains") \
+        .update({"deleted_at": now}) \
+        .eq("id", strain_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    return {"deleted": strain_id}
 
 
 # ── Genetic Lineage ───────────────────────────────────────────────────────────
