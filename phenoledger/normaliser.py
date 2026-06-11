@@ -114,6 +114,33 @@ COMPOUND_ALIASES: dict[str, str] = {
     "A-PINENE":         "ALPHA-PINENE",
     "A-TERPINENE":      "ALPHA-TERPINENE",
     "G-TERPINENE":      "GAMMA-TERPINENE",
+    # Novel cannabinoids increasingly on California COAs
+    "THCP":             "THCP",
+    "THCPA":            "THCPA",
+    "CBDP":             "CBDP",
+    "CBNO":             "CBNO",
+    "CBG1":             "CBG1",
+    "D9-THCA-A":        "THCA",
+    "Δ9-THCA-A":        "THCA",
+    # Additional terpene aliases
+    "D-LIMONENE":       "LIMONENE",
+    "L-LIMONENE":       "LIMONENE",
+    "TRANS-CARYOPHYLLENE": "BETA-CARYOPHYLLENE",
+    "CIS-OCIMENE":      "CIS-OCIMENE",
+    "TRANS-OCIMENE":    "TRANS-OCIMENE",
+    "ALPHA-FARNESENE":  "ALPHA-FARNESENE",
+    "BETA-FARNESENE":   "BETA-FARNESENE",
+    "TRANS-B-FARNESENE": "BETA-FARNESENE",
+    "NEROLIDOL":        "NEROLIDOL",
+    "VALENCENE":        "VALENCENE",
+    "GERANIOL":         "GERANIOL",
+    "CAMPHENE":         "CAMPHENE",
+    "EUCALYPTOL":       "EUCALYPTOL",
+    "BORNEOL":          "BORNEOL",
+    "FENCHOL":          "FENCHOL",
+    "TERPINEN-4-OL":    "TERPINEN-4-OL",
+    "SABINENE":         "SABINENE",
+    "GUAIOL":           "GUAIOL",
 }
 
 
@@ -122,7 +149,7 @@ def canonical_compound(raw: str) -> str:
     return COMPOUND_ALIASES.get(cleaned, cleaned)
 
 
-SENTINEL_VALUES = {"ND", "<LOQ", "<LOD", "NR", "NT", "N/A", "NONE", ""}
+SENTINEL_VALUES = {"ND", "<LOQ", "<LOD", "NR", "NT", "N/A", "NONE", "", "NOT DETECTED", "TRACE", "BDL", "N/D", "NOT TESTED", "NOT REPORTED"}
 
 
 def parse_numeric(raw: str) -> Decimal | None:
