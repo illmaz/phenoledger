@@ -652,6 +652,14 @@ def create_mother_plant(payload: MotherPlantIn, current_user = Depends(verify_to
             }).execute()
             ns_data: list[dict] = ns.data  # type: ignore[assignment]
             strain_id = ns_data[0]["id"] if ns_data else None
+    existing_code = supabase.table("mother_plants") \
+        .select("id") \
+        .eq("farm_id", FARM_ID) \
+        .eq("plant_code", payload.plant_code) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if existing_code.data:
+        raise HTTPException(status_code=409, detail=f"Plant code '{payload.plant_code}' already exists")
     row = supabase.table("mother_plants").insert({
         "farm_id": FARM_ID,
         "plant_code": payload.plant_code,
@@ -737,6 +745,14 @@ def create_seed_lot(payload: SeedLotIn, current_user = Depends(verify_token)):
             }).execute()
             ns_data: list[dict] = ns.data  # type: ignore[assignment]
             strain_id = ns_data[0]["id"] if ns_data else None
+    existing_code = supabase.table("seed_lots") \
+        .select("id") \
+        .eq("farm_id", FARM_ID) \
+        .eq("lot_code", payload.lot_code) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if existing_code.data:
+        raise HTTPException(status_code=409, detail=f"Lot code '{payload.lot_code}' already exists")
     row = supabase.table("seed_lots").insert({
         "farm_id": FARM_ID,
         "lot_code": payload.lot_code,
