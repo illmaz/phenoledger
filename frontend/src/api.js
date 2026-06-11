@@ -57,6 +57,16 @@ export async function fetchStrainBatches(strainName) {
   return res.json()
 }
 
+export async function createPropagation(payload) {
+  const res = await fetch(`${BASE}/propagations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
 export async function fetchUploadsCount() {
   const res = await fetch(`${BASE}/uploads/count`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
