@@ -13,9 +13,9 @@ from phenoledger.extractors.sclabs import extract as sclabs_extract, extract_hea
 from phenoledger.extractors.confident_lims import extract as confident_lims_extract, extract_header as confident_lims_header
 from phenoledger.extractors.botanacor import extract as botanacor_extract, extract_header as botanacor_header
 from phenoledger.extractors.analytics_labs import extract as analytics_labs_extract, extract_header as analytics_labs_header
-from datetime import datetime
+from datetime import datetime, timezone
 
-FARM_ID = "fd1c1598-8769-4da9-a885-2f74bca047d6"
+FARM_ID = os.environ["FARM_ID"]
 
 LAB_DISPLAY = {
     "sclabs":             "SC Labs",
@@ -25,6 +25,7 @@ LAB_DISPLAY = {
     "new_bloom":          "New Bloom Labs",
     "marin_analytics":    "Marin Analytics",
     "analytics_labs":     "Analytics Labs",
+    "botanacor":          "SC Labs (Botanacor)",
 }
 
 _LAB_SUFFIX = re.compile(
@@ -470,7 +471,7 @@ def get_pdf_url(upload_id: str):
 
 @app.delete("/strain/{strain_name}")
 def delete_strain(strain_name: str):
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
     reports = supabase.table("coa_reports") \
         .select("id, upload_id") \
         .eq("farm_id", FARM_ID) \
@@ -537,7 +538,7 @@ def create_mother_plant(payload: MotherPlantIn):
 @app.delete("/mother-plants/{plant_id}")
 def delete_mother_plant(plant_id: str):
     supabase.table("mother_plants") \
-        .update({"deleted_at": datetime.utcnow().isoformat()}) \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
         .eq("id", plant_id) \
         .eq("farm_id", FARM_ID) \
         .execute()
@@ -562,7 +563,7 @@ def create_seed_lot(data: dict):
 @app.delete("/seed-lots/{lot_id}")
 def delete_seed_lot(lot_id: str):
     supabase.table("seed_lots") \
-        .update({"deleted_at": datetime.utcnow().isoformat()}) \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
         .eq("id", lot_id) \
         .eq("farm_id", FARM_ID) \
         .execute()
