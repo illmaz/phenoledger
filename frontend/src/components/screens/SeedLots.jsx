@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, X } from 'lucide-react'
+import { Plus, Trash2, Pencil, X } from 'lucide-react'
 import { Panel, Badge, Grid, StatCard } from '../ui'
 import CountrySelect from '../CountrySelect'
-import { fetchSeedLots, createSeedLot, deleteSeedLot, fetchStrains } from '../../api'
+import { fetchSeedLots, createSeedLot, updateSeedLot, deleteSeedLot, fetchStrains } from '../../api'
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -176,9 +176,157 @@ function RegisterModal({ strains, onClose, onSaved }) {
   )
 }
 
+// ── EditModal ─────────────────────────────────────────────────────────────────
+
+function EditModal({ lot, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    origin_country:            lot.origin_country            ?? '',
+    import_permit_number:      lot.import_permit_number      ?? '',
+    phytosanitary_cert_number: lot.phytosanitary_cert_number ?? '',
+    germination_rate:          lot.germination_rate != null ? String(lot.germination_rate) : '',
+    quantity_seeds:            lot.quantity_seeds   != null ? String(lot.quantity_seeds)   : '',
+    arrival_date:              lot.arrival_date ? lot.arrival_date.split('T')[0] : '',
+    notes:                     lot.notes ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError]   = useState('')
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setSaving(true); setError('')
+    try {
+      await updateSeedLot(lot.id, {
+        origin_country:            form.origin_country            || null,
+        import_permit_number:      form.import_permit_number      || null,
+        phytosanitary_cert_number: form.phytosanitary_cert_number || null,
+        germination_rate:          form.germination_rate  ? parseFloat(form.germination_rate)  : null,
+        quantity_seeds:            form.quantity_seeds    ? parseInt(form.quantity_seeds, 10)  : null,
+        arrival_date:              form.arrival_date               || null,
+        notes:                     form.notes                      || null,
+      })
+      onSaved()
+    } catch (err) {
+      setError(err.message); setSaving(false)
+    }
+  }
+
+  const inp = {
+    width: '100%', padding: '6px 9px', fontSize: 12, boxSizing: 'border-box',
+    border: '0.5px solid var(--border)', borderRadius: 6,
+    background: 'var(--bg)', color: 'var(--text)', outline: 'none',
+  }
+  const lbl = { fontSize: 11, color: 'var(--text-2)', display: 'block', marginBottom: 4 }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: 10,
+          padding: '28px 28px 24px', width: 460, maxWidth: '92vw', maxHeight: '90vh',
+          overflowY: 'auto', boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Edit Seed Lot</div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2, fontFamily: 'monospace' }}>{lot.lot_code}</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', display: 'flex' }}>
+            <X size={15} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Origin Country</label>
+              <CountrySelect
+                value={form.origin_country}
+                onChange={v => set('origin_country', v)}
+                inputStyle={inp}
+              />
+            </div>
+            <div>
+              <label style={lbl}>Arrival Date</label>
+              <input style={inp} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <label style={lbl}>Import Permit Number</label>
+            <input style={inp} value={form.import_permit_number} onChange={e => set('import_permit_number', e.target.value)} placeholder="IP-2024-XXXX" />
+          </div>
+
+          <div>
+            <label style={lbl}>Phytosanitary Certificate Number</label>
+            <input style={inp} value={form.phytosanitary_cert_number} onChange={e => set('phytosanitary_cert_number', e.target.value)} placeholder="PC-2024-XXXX" />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Germination Rate (%)</label>
+              <input
+                style={inp} type="number" min="0" max="100" step="0.1"
+                value={form.germination_rate}
+                onChange={e => set('germination_rate', e.target.value)}
+                placeholder="85.0"
+              />
+            </div>
+            <div>
+              <label style={lbl}>Quantity of Seeds</label>
+              <input style={inp} type="number" min="0" value={form.quantity_seeds} onChange={e => set('quantity_seeds', e.target.value)} placeholder="500" />
+            </div>
+          </div>
+
+          <div>
+            <label style={lbl}>Notes</label>
+            <textarea
+              style={{ ...inp, resize: 'vertical', minHeight: 64, fontFamily: 'inherit' }}
+              value={form.notes}
+              onChange={e => set('notes', e.target.value)}
+              maxLength={500}
+              placeholder="Optional notes…"
+            />
+            {form.notes.length > 400 && (
+              <div style={{ fontSize: 10, color: 'var(--text-3)', textAlign: 'right', marginTop: 2 }}>
+                {form.notes.length}/500
+              </div>
+            )}
+          </div>
+
+          {error && <div style={{ fontSize: 12, color: '#f87171' }}>{error}</div>}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+            <button type="button" onClick={onClose} style={{
+              padding: '7px 14px', fontSize: 12, border: '0.5px solid var(--border)',
+              borderRadius: 6, background: 'transparent', color: 'var(--text-2)', cursor: 'pointer',
+            }}>Cancel</button>
+            <button type="submit" disabled={saving} style={{
+              padding: '7px 14px', fontSize: 12, fontWeight: 600, border: 'none',
+              borderRadius: 6, background: saving ? '#2d6e4a' : '#4ade80',
+              color: '#0a0a0a', cursor: saving ? 'not-allowed' : 'pointer',
+            }}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── LotRow ────────────────────────────────────────────────────────────────────
 
-function LotRow({ lot, onDelete, last }) {
+function LotRow({ lot, onEdit, onDelete, last }) {
   const [hovered, setHovered] = useState(false)
   const strainName = lot.strains?.name ?? '—'
 
@@ -226,7 +374,19 @@ function LotRow({ lot, onDelete, last }) {
       <span style={{ width: 80, fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
         {fmtDate(lot.arrival_date)}
       </span>
-      <div style={{ width: 28, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+      <div style={{ width: 52, display: 'flex', justifyContent: 'flex-end', gap: 2, flexShrink: 0 }}>
+        {hovered && (
+          <button
+            onClick={() => onEdit(lot)}
+            title="Edit"
+            style={{
+              padding: '2px 4px', border: 'none', background: 'transparent',
+              cursor: 'pointer', color: '#60a5fa', display: 'flex', alignItems: 'center',
+            }}
+          >
+            <Pencil size={11} />
+          </button>
+        )}
         {hovered && (
           <button
             onClick={() => onDelete(lot.id, lot.lot_code)}
@@ -250,6 +410,7 @@ export default function SeedLots() {
   const [lots, setLots]               = useState(null)
   const [strains, setStrains]         = useState([])
   const [showModal, setShowModal]     = useState(false)
+  const [editingLot, setEditingLot]   = useState(null)
   const [actionError, setActionError] = useState(null)
 
   function load() {
@@ -334,12 +495,13 @@ export default function SeedLots() {
             <span style={{ ...hdr, width: 52, textAlign: 'right' }}>Qty</span>
             <span style={{ ...hdr, width: 68, textAlign: 'right' }}>Germ.</span>
             <span style={{ ...hdr, width: 80 }}>Arrival</span>
-            <span style={{ ...hdr, width: 28 }} />
+            <span style={{ ...hdr, width: 52 }} />
           </div>
           {lots.map((l, i) => (
             <LotRow
               key={l.id}
               lot={l}
+              onEdit={setEditingLot}
               onDelete={handleDelete}
               last={i === lots.length - 1}
             />
@@ -352,6 +514,14 @@ export default function SeedLots() {
           strains={strains}
           onClose={() => setShowModal(false)}
           onSaved={() => { setShowModal(false); load() }}
+        />
+      )}
+
+      {editingLot && (
+        <EditModal
+          lot={editingLot}
+          onClose={() => setEditingLot(null)}
+          onSaved={() => { setEditingLot(null); load() }}
         />
       )}
     </div>

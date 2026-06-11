@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from pathlib import Path
 import pdfplumber
 from phenoledger.normaliser import canonical_compound, parse_and_normalise, parse_numeric
@@ -53,16 +54,16 @@ def extract(pdf_path: str | Path) -> dict:
     cannabinoids = []
     terpenes = []
     with pdfplumber.open(pdf_path) as pdf:
-        for i, page in enumerate(pdf.pages):
+        for page in pdf.pages:
             text = page.extract_text() or ""
-            if i == 0 and "Cannabinoids Complete" in text:
+            if not cannabinoids and "Cannabinoids Complete" in text:
                 idx = text.find("Cannabinoids Complete")
                 if idx != -1:
                     start = idx
                     end = text.find("Entered by:")
                     end = end if end != -1 else len(text)
                     cannabinoids = _parse_block(text[start:end])
-            if i == 1 and "Terpenes" in text:
+            if not terpenes and "Terpenes" in text:
                 idx = text.find("Terpenes")
                 if idx != -1:
                     start = idx + len("Terpenes")
@@ -78,11 +79,7 @@ def extract_header(pdf_path: str | Path) -> dict:
     header = {}
     m = re.search(r"Completed:\s+(\d{2}/\d{2}/\d{4})", text)
     if m:
-        try:
-            from datetime import datetime as _dt
-            header["report_date"] = _dt.strptime(m.group(1), "%m/%d/%Y").strftime("%Y-%m-%d")
-        except ValueError:
-            header["report_date"] = m.group(1)
+        header["report_date"] = datetime.strptime(m.group(1), "%m/%d/%Y").strftime("%Y-%m-%d")
     m = re.search(r"Strain:\s+([^\n]+?)\s+Completed:", text)
     if m:
         header["sample_name"] = m.group(1).strip()

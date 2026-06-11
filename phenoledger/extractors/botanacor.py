@@ -1,4 +1,6 @@
 import re
+import logging
+from datetime import datetime
 from pathlib import Path
 import pdfplumber
 from phenoledger.normaliser import canonical_compound, parse_and_normalise, parse_numeric
@@ -59,33 +61,31 @@ def extract(pdf_path: str | Path) -> dict:
     return {"cannabinoids": cannabinoids, "terpenes": []}
 
 
+def _to_iso(raw: str) -> str | None:
+    try:
+        return datetime.strptime(raw, "%d%b%Y").strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
 def extract_header(pdf_path: str | Path) -> dict:
+    header = {}
     with pdfplumber.open(pdf_path) as pdf:
         text = pdf.pages[0].extract_text() or ""
-    header = {}
+        words = pdf.pages[0].extract_words()
     # Dates are in format 20Mar2025 — search anywhere in text
-    from datetime import datetime as _dt
     dates = re.findall(r'(\d{2}[A-Za-z]{3}\d{4})', text)
-    def _to_iso(raw):
-        try:
-            return _dt.strptime(raw, "%d%b%Y").strftime("%Y-%m-%d")
-        except ValueError:
-            return None
     if dates:
         header["report_date"] = _to_iso(dates[0])
     if len(dates) > 1:
         header["received_date"] = _to_iso(dates[-1])
-    # Strain name: use positional extraction — strain words appear at top ~75-85px
-    # The garbled text is two columns overlapping; strain name words are on the right
-    try:
-        with pdfplumber.open(pdf_path) as pdf2:
-            words = pdf2.pages[0].extract_words()
-        strain_words = [
-            w["text"] for w in words
-            if 72 < w["top"] < 79 and w["x0"] > 180
-        ]
-        if strain_words:
-            header["sample_name"] = " ".join(strain_words)
-    except Exception:
-        pass
+    # Strain name: positional extraction — strain words appear at top ~72-79px on the right column
+    strain_words = [
+        w["text"] for w in words
+        if 72 < w["top"] < 79 and w["x0"] > 180
+    ]
+    if strain_words:
+        header["sample_name"] = " ".join(strain_words)
+    else:
+        logging.warning("botanacor: positional strain name extraction returned empty for %s", pdf_path)
     return header
