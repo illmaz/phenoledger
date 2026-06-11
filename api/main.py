@@ -84,6 +84,33 @@ class MotherPlantIn(BaseModel):
     origin_country: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=500)
 
+class MotherPlantUpdate(BaseModel):
+    health_status: Optional[Literal["healthy", "watch", "sick"]] = None
+    hlvd_result: Optional[Literal["negative", "positive", "pending"]] = None
+    hlvd_test_date: Optional[date] = None
+    last_cloned_date: Optional[date] = None
+    total_clones_taken: Optional[int] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+
+class SeedLotUpdate(BaseModel):
+    origin_country: Optional[str] = Field(None, max_length=100)
+    import_permit_number: Optional[str] = Field(None, max_length=100)
+    phytosanitary_cert_number: Optional[str] = Field(None, max_length=100)
+    germination_rate: Optional[float] = Field(None, ge=0, le=100)
+    quantity_seeds: Optional[int] = Field(None, ge=0)
+    arrival_date: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+
+class PropagationUpdate(BaseModel):
+    propagation_date: Optional[date] = None
+    clones_taken: Optional[int] = Field(None, ge=1)
+    grow_type: Optional[Literal["indoor", "outdoor", "greenhouse"]] = None
+    notes: Optional[str] = Field(None, max_length=500)
+    report_id: Optional[str] = None
+
+
 class PropagationIn(BaseModel):
     mother_plant_id: str
     report_id: Optional[str] = None
@@ -623,12 +650,13 @@ def delete_strain(strain_name: str, current_user = Depends(verify_token)):
 # ── Genetic Lineage ───────────────────────────────────────────────────────────
 
 @app.get("/mother-plants")
-def list_mother_plants(auth = Depends(verify_token)):
+def list_mother_plants(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("mother_plants") \
         .select("*, strains(name)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
+        .range(offset, offset + limit - 1) \
         .execute()
     return rows.data
 
@@ -707,12 +735,13 @@ def delete_mother_plant(plant_id: str, current_user = Depends(verify_token)):
 
 
 @app.get("/seed-lots")
-def list_seed_lots(auth = Depends(verify_token)):
+def list_seed_lots(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("seed_lots") \
         .select("*, strains(name)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
+        .range(offset, offset + limit - 1) \
         .execute()
     return rows.data
 
@@ -770,10 +799,8 @@ def create_seed_lot(payload: SeedLotIn, current_user = Depends(verify_token)):
 
 
 @app.put("/seed-lots/{lot_id}")
-def update_seed_lot(lot_id: str, payload: dict, current_user = Depends(verify_token)):
-    allowed = {"origin_country", "import_permit_number", "phytosanitary_cert_number",
-               "germination_rate", "quantity_seeds", "arrival_date", "notes"}
-    update = {k: v for k, v in payload.items() if k in allowed}
+def update_seed_lot(lot_id: str, payload: SeedLotUpdate, current_user = Depends(verify_token)):
+    update = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if not update:
         raise HTTPException(status_code=400, detail="No valid fields to update")
     result = supabase.table("seed_lots") \
@@ -828,12 +855,13 @@ def strain_lineage(strain_name: str, auth = Depends(verify_token)):
 # ── Propagations ──────────────────────────────────────────────────────────────
 
 @app.get("/propagations")
-def list_propagations(auth = Depends(verify_token)):
+def list_propagations(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("propagations") \
         .select("*, mother_plants(plant_code, strains(name)), coa_reports(sample_name, report_date)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
+        .range(offset, offset + limit - 1) \
         .execute()
     return rows.data
 
@@ -859,9 +887,8 @@ def create_propagation(payload: PropagationIn, current_user = Depends(verify_tok
     return row_data[0]
 
 @app.put("/propagations/{prop_id}")
-def update_propagation(prop_id: str, payload: dict, current_user = Depends(verify_token)):
-    allowed = {"propagation_date", "clones_taken", "grow_type", "notes", "report_id"}
-    update = {k: v for k, v in payload.items() if k in allowed}
+def update_propagation(prop_id: str, payload: PropagationUpdate, current_user = Depends(verify_token)):
+    update = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if not update:
         raise HTTPException(status_code=400, detail="No valid fields to update")
     result = supabase.table("propagations") \
