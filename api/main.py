@@ -103,6 +103,34 @@ class SeedLotUpdate(BaseModel):
     notes: Optional[str] = Field(None, max_length=500)
 
 
+class TrialEventIn(BaseModel):
+    event_date: date
+    event_type: Literal["pesticide", "nutrient", "anomaly", "observation"]
+    product_name: Optional[str] = Field(None, max_length=200)
+    quantity: Optional[str] = Field(None, max_length=50)
+    unit: Optional[str] = Field(None, max_length=20)
+    notes: Optional[str] = Field(None, max_length=500)
+
+
+class TrialUpdate(BaseModel):
+    location_name: Optional[str] = Field(None, max_length=200)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    grow_type: Optional[Literal["indoor", "outdoor", "greenhouse"]] = None
+    start_date: Optional[date] = None
+    harvest_date: Optional[date] = None
+    grow_medium: Optional[str] = Field(None, max_length=100)
+    light_cycle: Optional[str] = Field(None, max_length=50)
+    temperature_min: Optional[float] = None
+    temperature_max: Optional[float] = None
+    humidity_min: Optional[float] = Field(None, ge=0, le=100)
+    humidity_max: Optional[float] = Field(None, ge=0, le=100)
+    wet_weight_g: Optional[float] = Field(None, ge=0)
+    dry_weight_g: Optional[float] = Field(None, ge=0)
+    plant_count: Optional[int] = Field(None, ge=1)
+    notes: Optional[str] = Field(None, max_length=500)
+
+
 class TrialIn(BaseModel):
     strain_id: Optional[str] = None
     mother_plant_id: Optional[str] = None
@@ -1015,7 +1043,7 @@ def delete_trial(trial_id: str, current_user = Depends(verify_token)):
     return {"deleted": trial_id}
 
 @app.put("/trials/{trial_id}")
-def update_trial(trial_id: str, payload: TrialIn, current_user = Depends(verify_token)):
+def update_trial(trial_id: str, payload: TrialUpdate, current_user = Depends(verify_token)):
     update = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if "start_date" in update and update["start_date"]:
         update["start_date"] = update["start_date"].isoformat()
@@ -1140,7 +1168,7 @@ def list_trial_events(trial_id: str, auth = Depends(verify_token)):
     return rows.data
 
 @app.post("/trials/{trial_id}/events")
-def create_trial_event(trial_id: str, payload: dict, current_user = Depends(verify_token)):
+def create_trial_event(trial_id: str, payload: TrialEventIn, current_user = Depends(verify_token)):
     trial_check = supabase.table("trials") \
         .select("id") \
         .eq("id", trial_id) \
@@ -1148,20 +1176,15 @@ def create_trial_event(trial_id: str, payload: dict, current_user = Depends(veri
         .execute()
     if not trial_check.data:
         raise HTTPException(status_code=404, detail="trial not found")
-    allowed_types = {"pesticide", "nutrient", "anomaly", "observation"}
-    if payload.get("event_type") not in allowed_types:
-        raise HTTPException(status_code=400, detail=f"event_type must be one of {allowed_types}")
-    if not payload.get("event_date"):
-        raise HTTPException(status_code=400, detail="event_date is required")
     row = supabase.table("trial_events").insert({
         "trial_id": trial_id,
         "farm_id": FARM_ID,
-        "event_date": payload["event_date"],
-        "event_type": payload["event_type"],
-        "product_name": payload.get("product_name"),
-        "quantity": payload.get("quantity"),
-        "unit": payload.get("unit"),
-        "notes": payload.get("notes"),
+        "event_date": payload.event_date.isoformat(),
+        "event_type": payload.event_type,
+        "product_name": payload.product_name,
+        "quantity": payload.quantity,
+        "unit": payload.unit,
+        "notes": payload.notes,
     }).execute()
     row_data: list[dict] = row.data  # type: ignore[assignment]
     if not row_data:
