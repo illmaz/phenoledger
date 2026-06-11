@@ -3,7 +3,7 @@ from pathlib import Path
 from decimal import Decimal
 import pytest
 
-PDF = Path("data/03_z_georgia_pie_sclabs.pdf")
+PDF = Path(__file__).parent.parent / "data" / "03_z_georgia_pie_sclabs.pdf"
 
 
 @pytest.fixture(scope="module")
