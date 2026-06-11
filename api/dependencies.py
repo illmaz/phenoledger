@@ -33,4 +33,10 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(_bearer)):
     response = supabase_anon.auth.get_user(token)
     if not response or not response.user:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    return response.user
+    
+    user_client = create_client(
+        os.environ["SUPABASE_URL"],
+        os.environ["SUPABASE_ANON_KEY"],
+    )
+    user_client.postgrest.auth(token)
+    return {"user": response.user, "client": user_client}

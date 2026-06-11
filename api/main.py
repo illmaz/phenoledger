@@ -170,7 +170,7 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
             }).execute()
         except Exception as e:
             print(f"Terpene insert failed: {r['compound']}: {e}")
-    
+
     if lab == LabFamily.SCLABS:
         header = sclabs_header(tmp_path)
     elif lab == LabFamily.BOTANACOR:
@@ -192,7 +192,6 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
             "reported_batch_number": header.get("reported_batch_number"),
         }).eq("id", report_id).execute()
 
-        # Auto-link to existing strain or create new one
         strain_name = header.get("sample_name") or _display_name(file.filename)
         strain_name = strain_name.split(" Received:")[0].split(" - Flower")[0].strip()
 
@@ -217,7 +216,6 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
             .eq("id", report_id) \
             .execute()
 
-    
     supabase.table("coa_uploads").update({
         "extraction_status": "confirmed",
     }).eq("id", upload_id).execute()
@@ -234,8 +232,8 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
 
 
 @app.get("/uploads")
-def list_uploads(current_user = Depends(verify_token)):
-    rows = supabase.table("coa_uploads") \
+def list_uploads(auth = Depends(verify_token)):
+    rows = auth["client"].table("coa_uploads") \
         .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date, sample_name)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
@@ -259,17 +257,18 @@ def list_uploads(current_user = Depends(verify_token)):
 
 
 @app.get("/uploads/count")
-def uploads_count(current_user = Depends(verify_token)):
-    rows = (supabase.table("coa_uploads")
+def uploads_count(auth = Depends(verify_token)):
+    rows = (auth["client"].table("coa_uploads")
         .select("*", count="exact")
         .eq("farm_id", FARM_ID)
         .is_("deleted_at", "null")
         .execute())
     return {"count": rows.count or 0}
 
+
 @app.get("/consistency")
-def consistency(current_user = Depends(verify_token)):
-    rows = supabase.table("cannabinoid_results") \
+def consistency(auth = Depends(verify_token)):
+    rows = auth["client"].table("cannabinoid_results") \
         .select("value_pct, coa_reports(sample_name, coa_uploads(original_filename))") \
         .eq("farm_id", FARM_ID) \
         .eq("compound_name", "THCA") \
@@ -289,9 +288,10 @@ def consistency(current_user = Depends(verify_token)):
             result.append({"strain": strain, "thca": round(float(val), 2)})
     return result
 
+
 @app.get("/strains")
-def list_strains(current_user = Depends(verify_token)):
-    rows = supabase.table("cannabinoid_results") \
+def list_strains(auth = Depends(verify_token)):
+    rows = auth["client"].table("cannabinoid_results") \
         .select("value_pct, created_at, coa_reports(sample_name, lab_name, coa_uploads(original_filename))") \
         .eq("farm_id", FARM_ID) \
         .eq("compound_name", "THCA") \
@@ -299,7 +299,6 @@ def list_strains(current_user = Depends(verify_token)):
         .order("created_at", desc=True) \
         .execute()
     data: list[dict] = rows.data  # type: ignore[assignment]
-    # Collect all readings per strain; dict preserves insertion order so index 0 is latest
     strain_vals: dict[str, list[float]] = {}
     strain_labs: dict[str, str | None] = {}
     for r in data:
@@ -342,8 +341,8 @@ def list_strains(current_user = Depends(verify_token)):
 
 
 @app.get("/strain/{strain_name}/cannabinoids")
-def strain_cannabinoids(strain_name: str, current_user = Depends(verify_token)):
-    reports_rows = supabase.table("coa_reports") \
+def strain_cannabinoids(strain_name: str, auth = Depends(verify_token)):
+    reports_rows = auth["client"].table("coa_reports") \
         .select("id, sample_name, coa_uploads(original_filename)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
@@ -358,13 +357,12 @@ def strain_cannabinoids(strain_name: str, current_user = Depends(verify_token)):
             matching_ids.append(r["id"])
     if not matching_ids:
         return []
-    cann_rows = supabase.table("cannabinoid_results") \
+    cann_rows = auth["client"].table("cannabinoid_results") \
         .select("compound_name, value_pct") \
         .in_("report_id", matching_ids) \
         .not_.is_("value_pct", "null") \
         .execute()
     cann_data: list[dict] = cann_rows.data  # type: ignore[assignment]
-    # Average across batches so each compound appears once
     grouped: dict[str, list[float]] = {}
     for r in cann_data:
         grouped.setdefault(r["compound_name"], []).append(float(r["value_pct"]))
@@ -374,10 +372,11 @@ def strain_cannabinoids(strain_name: str, current_user = Depends(verify_token)):
         reverse=True,
     )
 
+
 @app.get("/strain/{strain_name}/batches")
-def strain_batches(strain_name: str, current_user = Depends(verify_token)):
-    reports_rows = supabase.table("coa_reports") \
-        .select("id, upload_id, sample_name, report_date, coa_uploads(original_filename, extraction_status, created_at)")\
+def strain_batches(strain_name: str, auth = Depends(verify_token)):
+    reports_rows = auth["client"].table("coa_reports") \
+        .select("id, upload_id, sample_name, report_date, coa_uploads(original_filename, extraction_status, created_at)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .execute()
@@ -396,7 +395,7 @@ def strain_batches(strain_name: str, current_user = Depends(verify_token)):
     if not matching:
         return []
     matching_ids = [m["report_id"] for m in matching]
-    cann_rows = supabase.table("cannabinoid_results") \
+    cann_rows = auth["client"].table("cannabinoid_results") \
         .select("report_id, compound_name, value_pct") \
         .in_("report_id", matching_ids) \
         .in_("compound_name", ["THCA", "CBD"]) \
@@ -406,7 +405,7 @@ def strain_batches(strain_name: str, current_user = Depends(verify_token)):
     cann_by_report: dict[str, dict] = {}
     for r in cann_data:
         cann_by_report.setdefault(r["report_id"], {})[r["compound_name"]] = float(r["value_pct"])
-    terp_rows = supabase.table("terpene_results") \
+    terp_rows = auth["client"].table("terpene_results") \
         .select("report_id, compound_name, value_pct") \
         .in_("report_id", matching_ids) \
         .not_.is_("value_pct", "null") \
@@ -437,8 +436,8 @@ def strain_batches(strain_name: str, current_user = Depends(verify_token)):
 
 
 @app.get("/strain/{strain_name}/terpenes")
-def strain_terpenes(strain_name: str, current_user = Depends(verify_token)):
-    reports_rows = supabase.table("coa_reports") \
+def strain_terpenes(strain_name: str, auth = Depends(verify_token)):
+    reports_rows = auth["client"].table("coa_reports") \
         .select("id, sample_name, coa_uploads(original_filename)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
@@ -453,7 +452,7 @@ def strain_terpenes(strain_name: str, current_user = Depends(verify_token)):
             matching_ids.append(r["id"])
     if not matching_ids:
         return []
-    rows = supabase.table("terpene_results") \
+    rows = auth["client"].table("terpene_results") \
         .select("compound_name, value_pct") \
         .in_("report_id", matching_ids) \
         .not_.is_("value_pct", "null") \
@@ -468,9 +467,10 @@ def strain_terpenes(strain_name: str, current_user = Depends(verify_token)):
         reverse=True,
     )
 
+
 @app.get("/upload/{upload_id}/pdf")
-def get_pdf_url(upload_id: str, current_user = Depends(verify_token)):
-    row = supabase.table("coa_uploads") \
+def get_pdf_url(upload_id: str, auth = Depends(verify_token)):
+    row = auth["client"].table("coa_uploads") \
         .select("s3_bucket, s3_key, farm_id") \
         .eq("id", upload_id) \
         .eq("farm_id", FARM_ID) \
@@ -486,6 +486,7 @@ def get_pdf_url(upload_id: str, current_user = Depends(verify_token)):
         ExpiresIn=900,
     )
     return {"url": url}
+
 
 @app.delete("/strain/{strain_name}")
 def delete_strain(strain_name: str, current_user = Depends(verify_token)):
@@ -509,17 +510,19 @@ def delete_strain(strain_name: str, current_user = Depends(verify_token)):
                 .execute()
     return {"deleted": strain_name}
 
-#-------Genetic Lineage ─────────────────────────────────────────────────
+
+# ── Genetic Lineage ───────────────────────────────────────────────────────────
 
 @app.get("/mother-plants")
-def list_mother_plants(current_user = Depends(verify_token)):
-    rows = supabase.table("mother_plants") \
+def list_mother_plants(auth = Depends(verify_token)):
+    rows = auth["client"].table("mother_plants") \
         .select("*, strains(name)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .execute()
     return rows.data
+
 
 @app.post("/mother-plants")
 def create_mother_plant(payload: MotherPlantIn, current_user = Depends(verify_token)):
@@ -553,6 +556,7 @@ def create_mother_plant(payload: MotherPlantIn, current_user = Depends(verify_to
     row_data: list[dict] = row.data  # type: ignore[assignment]
     return row_data[0] if row_data else {}
 
+
 @app.delete("/mother-plants/{plant_id}")
 def delete_mother_plant(plant_id: str, current_user = Depends(verify_token)):
     supabase.table("mother_plants") \
@@ -562,9 +566,10 @@ def delete_mother_plant(plant_id: str, current_user = Depends(verify_token)):
         .execute()
     return {"deleted": plant_id}
 
+
 @app.get("/seed-lots")
-def list_seed_lots(current_user = Depends(verify_token)):
-    rows = supabase.table("seed_lots") \
+def list_seed_lots(auth = Depends(verify_token)):
+    rows = auth["client"].table("seed_lots") \
         .select("*, strains(name)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
@@ -572,11 +577,13 @@ def list_seed_lots(current_user = Depends(verify_token)):
         .execute()
     return rows.data
 
+
 @app.post("/seed-lots")
 def create_seed_lot(data: dict, current_user = Depends(verify_token)):
     data["farm_id"] = FARM_ID
     row = supabase.table("seed_lots").insert(data).execute()
     return row.data[0]
+
 
 @app.delete("/seed-lots/{lot_id}")
 def delete_seed_lot(lot_id: str, current_user = Depends(verify_token)):
@@ -587,9 +594,10 @@ def delete_seed_lot(lot_id: str, current_user = Depends(verify_token)):
         .execute()
     return {"deleted": lot_id}
 
+
 @app.get("/strain/{strain_name}/lineage")
-def strain_lineage(strain_name: str, current_user = Depends(verify_token)):
-    sr = supabase.table("strains") \
+def strain_lineage(strain_name: str, auth = Depends(verify_token)):
+    sr = auth["client"].table("strains") \
         .select("id") \
         .eq("farm_id", FARM_ID) \
         .eq("name", strain_name) \
@@ -599,13 +607,13 @@ def strain_lineage(strain_name: str, current_user = Depends(verify_token)):
     if not sr_data:
         return {"seed_lots": [], "mother_plants": []}
     sid = sr_data[0]["id"]
-    seed_lots = supabase.table("seed_lots") \
+    seed_lots = auth["client"].table("seed_lots") \
         .select("id, lot_code, supplier, date_received, seed_count") \
         .eq("strain_id", sid) \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .execute()
-    mother_plants = supabase.table("mother_plants") \
+    mother_plants = auth["client"].table("mother_plants") \
         .select("id, plant_code, established_date, clone_generation, health_status, hlvd_tested, hlvd_result") \
         .eq("strain_id", sid) \
         .eq("farm_id", FARM_ID) \
