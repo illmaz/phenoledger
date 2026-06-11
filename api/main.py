@@ -103,6 +103,27 @@ class SeedLotUpdate(BaseModel):
     notes: Optional[str] = Field(None, max_length=500)
 
 
+class TrialIn(BaseModel):
+    strain_id: Optional[str] = None
+    mother_plant_id: Optional[str] = None
+    location_name: Optional[str] = Field(None, max_length=200)
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    grow_type: Optional[Literal["indoor", "outdoor", "greenhouse"]] = None
+    start_date: Optional[date] = None
+    harvest_date: Optional[date] = None
+    grow_medium: Optional[str] = Field(None, max_length=100)
+    light_cycle: Optional[str] = Field(None, max_length=50)
+    temperature_min: Optional[float] = None
+    temperature_max: Optional[float] = None
+    humidity_min: Optional[float] = Field(None, ge=0, le=100)
+    humidity_max: Optional[float] = Field(None, ge=0, le=100)
+    wet_weight_g: Optional[float] = Field(None, ge=0)
+    dry_weight_g: Optional[float] = Field(None, ge=0)
+    plant_count: Optional[int] = Field(None, ge=1)
+    notes: Optional[str] = Field(None, max_length=500)
+
+
 class PropagationUpdate(BaseModel):
     propagation_date: Optional[date] = None
     clones_taken: Optional[int] = Field(None, ge=1)
@@ -910,3 +931,150 @@ def delete_propagation(prop_id: str, current_user = Depends(verify_token)):
     if not result.data:
         raise HTTPException(status_code=404, detail="propagation not found")
     return {"deleted": prop_id}
+
+# ── Phase 3: Trials ───────────────────────────────────────────────────────────
+
+@app.get("/trials")
+def list_trials(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
+    rows = auth["client"].table("trials") \
+        .select("*, strains(name), mother_plants(plant_code)") \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .order("created_at", desc=True) \
+        .range(offset, offset + limit - 1) \
+        .execute()
+    return rows.data
+
+@app.post("/trials")
+def create_trial(payload: TrialIn, current_user = Depends(verify_token)):
+    row = supabase.table("trials").insert({
+        "farm_id": FARM_ID,
+        "strain_id": payload.strain_id,
+        "mother_plant_id": payload.mother_plant_id,
+        "location_name": payload.location_name,
+        "latitude": payload.latitude,
+        "longitude": payload.longitude,
+        "grow_type": payload.grow_type,
+        "start_date": payload.start_date.isoformat() if payload.start_date else None,
+        "harvest_date": payload.harvest_date.isoformat() if payload.harvest_date else None,
+        "grow_medium": payload.grow_medium,
+        "light_cycle": payload.light_cycle,
+        "temperature_min": payload.temperature_min,
+        "temperature_max": payload.temperature_max,
+        "humidity_min": payload.humidity_min,
+        "humidity_max": payload.humidity_max,
+        "wet_weight_g": payload.wet_weight_g,
+        "dry_weight_g": payload.dry_weight_g,
+        "plant_count": payload.plant_count,
+        "notes": payload.notes,
+    }).execute()
+    row_data: list[dict] = row.data  # type: ignore[assignment]
+    if not row_data:
+        raise HTTPException(status_code=500, detail="trial creation failed")
+    return row_data[0]
+
+@app.post("/trials/{trial_id}/coa")
+def link_trial_coa(trial_id: str, report_id: str, current_user = Depends(verify_token)):
+    trial_check = supabase.table("trials") \
+        .select("id") \
+        .eq("id", trial_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    if not trial_check.data:
+        raise HTTPException(status_code=404, detail="trial not found")
+    row = supabase.table("trial_coa_links").insert({
+        "trial_id": trial_id,
+        "report_id": report_id,
+    }).execute()
+    row_data: list[dict] = row.data  # type: ignore[assignment]
+    if not row_data:
+        raise HTTPException(status_code=500, detail="link creation failed")
+    return row_data[0]
+
+@app.get("/trials/{trial_id}")
+def get_trial(trial_id: str, auth = Depends(verify_token)):
+    row = auth["client"].table("trials") \
+        .select("*, strains(name), mother_plants(plant_code), trial_coa_links(report_id, coa_reports(sample_name, report_date))") \
+        .eq("id", trial_id) \
+        .eq("farm_id", FARM_ID) \
+        .single() \
+        .execute()
+    if not row.data:
+        raise HTTPException(status_code=404, detail="trial not found")
+    return row.data
+
+@app.delete("/trials/{trial_id}")
+def delete_trial(trial_id: str, current_user = Depends(verify_token)):
+    result = supabase.table("trials") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", trial_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="trial not found")
+    return {"deleted": trial_id}
+
+@app.put("/trials/{trial_id}")
+def update_trial(trial_id: str, payload: TrialIn, current_user = Depends(verify_token)):
+    update = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if "start_date" in update and update["start_date"]:
+        update["start_date"] = update["start_date"].isoformat()
+    if "harvest_date" in update and update["harvest_date"]:
+        update["harvest_date"] = update["harvest_date"].isoformat()
+    if not update:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    result = supabase.table("trials") \
+        .update(update) \
+        .eq("id", trial_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="trial not found")
+    return {"updated": trial_id}
+
+@app.delete("/trials/{trial_id}/coa/{report_id}")
+def unlink_trial_coa(trial_id: str, report_id: str, current_user = Depends(verify_token)):
+    trial_check = supabase.table("trials") \
+        .select("id") \
+        .eq("id", trial_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    if not trial_check.data:
+        raise HTTPException(status_code=404, detail="trial not found")
+    supabase.table("trial_coa_links") \
+        .delete() \
+        .eq("trial_id", trial_id) \
+        .eq("report_id", report_id) \
+        .execute()
+    return {"unlinked": report_id}
+
+@app.get("/trials/analytics")
+def trials_analytics(auth = Depends(verify_token)):
+    rows = auth["client"].table("trials") \
+        .select("*, strains(name), trial_coa_links(report_id, coa_reports(sample_name, report_date, cannabinoid_results(compound_name, value_pct)))") \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .execute()
+    data: list[dict] = rows.data or []
+    result = []
+    for trial in data:
+        strain_name = (trial.get("strains") or {}).get("name", "Unknown")
+        thca = None
+        links = trial.get("trial_coa_links") or []
+        for link in links:
+            report = link.get("coa_reports") or {}
+            for compound in (report.get("cannabinoid_results") or []):
+                if compound["compound_name"] == "THCA" and compound["value_pct"]:
+                    thca = float(compound["value_pct"])
+                    break
+        result.append({
+            "trial_id": trial["id"],
+            "strain": strain_name,
+            "grow_type": trial.get("grow_type"),
+            "location": trial.get("location_name"),
+            "dry_weight_g": trial.get("dry_weight_g"),
+            "plant_count": trial.get("plant_count"),
+            "thca": thca,
+            "harvest_date": trial.get("harvest_date"),
+        })
+    return result
