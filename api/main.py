@@ -5,7 +5,7 @@ import tempfile
 import logging
 import hashlib
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import FastAPI, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from api.dependencies import s3, supabase, verify_token
@@ -14,7 +14,7 @@ from phenoledger.extractors.sclabs import extract as sclabs_extract, extract_hea
 from phenoledger.extractors.confident_lims import extract as confident_lims_extract, extract_header as confident_lims_header
 from phenoledger.extractors.botanacor import extract as botanacor_extract, extract_header as botanacor_header
 from phenoledger.extractors.analytics_labs import extract as analytics_labs_extract, extract_header as analytics_labs_header
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 FARM_ID = os.environ["FARM_ID"]
 
@@ -44,7 +44,7 @@ def _display_name(filename: str) -> str:
 _CONCENTRATE_KW = ['rosin', 'wax', 'live resin', 'hash', 'badder', 'batter', 'sauce',
                    'diamonds', 'crumble', 'shatter', 'kief', 'sift', 'bubble', 'ice water']
 _EXTRACT_KW     = ['distillate', 'isolate', 'tincture', 'rso', 'oil', 'cartridge',
-                   'extract', 'co2', 'nano', 'tincture']
+                   'extract', 'co2', 'nano']
 
 def _infer_sample_type(name: str) -> str:
     lower = name.lower()
@@ -55,9 +55,9 @@ def _infer_sample_type(name: str) -> str:
     return 'flower'
 
 class MotherPlantIn(BaseModel):
-    plant_code: str
+    plant_code: str = Field(..., max_length=50)
     strain_name: Optional[str] = None
-    established_date: Optional[str] = None
+    established_date: Optional[date] = None
     clone_generation: Optional[int] = None
     health_status: str = "healthy"
     hlvd_tested: bool = False
@@ -156,9 +156,10 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
             "unit_raw": "mg/g",
         }).execute()
 
-    for r in extracted["terpenes"]:
-        if r["value_pct"] is None:
-            continue
+    terpenes_with_value = [r for r in extracted["terpenes"] if r["value_pct"] is not None]
+    if extracted["terpenes"] and not terpenes_with_value:
+        logging.warning("upload %s: %d terpenes extracted but all have null value_pct", upload_id, len(extracted["terpenes"]))
+    for r in terpenes_with_value:
         try:
             supabase.table("terpene_results").insert({
                 "farm_id": FARM_ID,
@@ -169,7 +170,7 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
                 "unit_raw": "mg/g",
             }).execute()
         except Exception as e:
-            print(f"Terpene insert failed: {r['compound']}: {e}")
+            logging.error("Terpene insert failed: %s — %s", r["compound"], e)
 
     if lab == LabFamily.SCLABS:
         header = sclabs_header(tmp_path)
@@ -192,8 +193,10 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
             "reported_batch_number": header.get("reported_batch_number"),
         }).eq("id", report_id).execute()
 
-        strain_name = header.get("sample_name") or _display_name(file.filename)
-        strain_name = strain_name.split(" Received:")[0].split(" - Flower")[0].strip()
+        strain_name_raw = header.get("sample_name") or _display_name(file.filename or "")
+        strain_name = strain_name_raw.split(" Received:")[0].split(" - Flower")[0].strip()
+        if strain_name != strain_name_raw:
+            logging.warning("Strain name cleaned: %r → %r", strain_name_raw, strain_name)
 
         existing = supabase.table("strains") \
             .select("id") \
@@ -232,13 +235,13 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
 
 
 @app.get("/uploads")
-def list_uploads(auth = Depends(verify_token)):
+def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0):
     rows = auth["client"].table("coa_uploads") \
         .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date, sample_name)") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
-        .limit(10) \
+        .range(offset, offset + limit - 1) \
         .execute()
     data: list[dict] = rows.data  # type: ignore[assignment]
     result = []
@@ -268,25 +271,35 @@ def uploads_count(auth = Depends(verify_token)):
 
 @app.get("/consistency")
 def consistency(auth = Depends(verify_token)):
-    rows = auth["client"].table("cannabinoid_results") \
-        .select("value_pct, coa_reports(sample_name, coa_uploads(original_filename))") \
+    rows = auth["client"].table("strain_consistency") \
+        .select("strain_name, avg_pct") \
         .eq("farm_id", FARM_ID) \
         .eq("compound_name", "THCA") \
-        .not_.is_("value_pct", "null") \
-        .order("created_at", desc=True) \
-        .limit(12) \
         .execute()
     data: list[dict] = rows.data  # type: ignore[assignment]
-    result = []
-    for r in data:
-        report = r.get("coa_reports") or {}
-        upload = report.get("coa_uploads") or {}
-        filename = upload.get("original_filename", "")
-        strain = report.get("sample_name") or (_display_name(filename) if filename else "Unknown")
-        val = r.get("value_pct")
-        if val is not None:
-            result.append({"strain": strain, "thca": round(float(val), 2)})
-    return result
+    return [
+        {"strain": r["strain_name"], "thca": round(float(r["avg_pct"] or 0), 2)}
+        for r in data
+    ]
+
+@app.get("/consistency/alerts")
+def consistency_alerts(auth = Depends(verify_token)):
+    rows = auth["client"].table("strain_consistency") \
+        .select("strain_name, compound_name, status, cv_pct, stability_score") \
+        .eq("farm_id", FARM_ID) \
+        .in_("status", ["watch", "drift"]) \
+        .execute()
+    data: list[dict] = rows.data  # type: ignore[assignment]
+    return [
+        {
+            "strain": r["strain_name"],
+            "compound": r["compound_name"],
+            "status": r["status"],
+            "cv_pct": round(float(r["cv_pct"] or 0), 1),
+            "stability": round(float(r["stability_score"] or 0)),
+        }
+        for r in data
+    ]
 
 
 @app.get("/strains")
@@ -534,7 +547,7 @@ def create_mother_plant(payload: MotherPlantIn, current_user = Depends(verify_to
         "farm_id": FARM_ID,
         "plant_code": payload.plant_code,
         "strain_id": strain_id,
-        "established_date": payload.established_date,
+        "established_date": payload.established_date.isoformat() if payload.established_date else None,
         "clone_generation": payload.clone_generation,
         "health_status": payload.health_status,
         "hlvd_tested": payload.hlvd_tested,

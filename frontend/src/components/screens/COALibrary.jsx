@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Search, FileText, Loader } from 'lucide-react'
 import { StatCard, Panel, Badge, Row, Grid } from '../ui'
-import { fetchUploads, fetchUploadPdf } from '../../api'
+import { fetchUploads, fetchUploadPdf, fetchUploadsCount } from '../../api'
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -27,6 +27,7 @@ function statusLabel(s) {
 
 export default function COALibrary({ refreshKey }) {
   const [uploads, setUploads] = useState(null)
+  const [totalCount, setTotalCount] = useState(null)
   const [query, setQuery] = useState('')
   const [loadingPdf, setLoadingPdf] = useState({})
   const [pdfError, setPdfError] = useState({})
@@ -49,6 +50,9 @@ export default function COALibrary({ refreshKey }) {
     fetchUploads()
       .then(setUploads)
       .catch(() => setUploads([]))
+    fetchUploadsCount()
+      .then(setTotalCount)
+      .catch(() => {})
   }, [refreshKey])
 
   const data = uploads ?? []
@@ -85,7 +89,7 @@ export default function COALibrary({ refreshKey }) {
       </div>
 
       <Grid cols={4} gap={8}>
-        <StatCard label="Total COAs"  value={uploads === null ? '—' : data.length} />
+        <StatCard label="Total COAs"  value={totalCount === null ? '—' : totalCount} />
         <StatCard label="Labs"        value={uploads === null ? '—' : labCount} />
         <StatCard label="Strains"     value="—" />
         <StatCard label="This Month"  value={uploads === null ? '—' : thisMonth} />

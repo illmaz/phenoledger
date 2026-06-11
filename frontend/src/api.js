@@ -21,6 +21,12 @@ export async function fetchConsistency() {
   return res.json()
 }
 
+export async function fetchConsistencyAlerts() {
+  const res = await fetch(`${BASE}/consistency/alerts`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
 export async function fetchStrains() {
   const res = await fetch(`${BASE}/strains`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)

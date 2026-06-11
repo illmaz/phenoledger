@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import { StatCard, Panel, Badge, Row, Grid, TOOLTIP_STYLE, AXIS_TICK, GRID_COLOR } from '../ui'
-import { fetchUploads, fetchConsistency, fetchStrains, fetchUploadsCount } from '../../api'
+import { fetchUploads, fetchConsistency, fetchStrains, fetchUploadsCount, fetchConsistencyAlerts } from '../../api'
 
 function statusVariant(s) {
   if (s === 'confirmed') return 'ok'
@@ -19,74 +18,16 @@ function statusLabel(s) {
   return s
 }
 
-function computeDrift(fleet) {
-  if (!fleet || fleet.length === 0) return []
-  const groups = {}
-  for (const r of fleet) {
-    if (!groups[r.strain]) groups[r.strain] = []
-    groups[r.strain].push(r.thca)
-  }
-  const drifts = []
-  for (const [strain, vals] of Object.entries(groups)) {
-    if (vals.length < 2) continue
-    const avg = vals.reduce((a, b) => a + b, 0) / vals.length
-    const latest = vals[vals.length - 1]
-    const delta = latest - avg
-    if (Math.abs(delta) > 2) {
-      drifts.push({
-        label: `${strain} – THCA`,
-        detail: `${delta > 0 ? '↑' : '↓'} ${Math.abs(delta).toFixed(1)}%`,
-      })
-    }
-  }
-  return drifts
-}
-
-function DriftModal({ drift, onClose }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
-        zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: '#222', border: '0.5px solid #3a3a3a', borderRadius: 10,
-          padding: '1.25rem', width: 360, maxWidth: '90vw',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>Drifting Compounds</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', display: 'flex' }}>
-            <X size={14} />
-          </button>
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 12 }}>
-          Batches where the latest value deviates more than ±2% from the strain average.
-        </div>
-        {drift.map((a, i) => (
-          <Row key={a.label} last={i === drift.length - 1}>
-            <span style={{ color: 'var(--text-2)' }}>{a.label}</span>
-            <Badge variant="warn">{a.detail}</Badge>
-          </Row>
-        ))}
-        {drift.length === 0 && (
-          <div style={{ fontSize: 12, color: 'var(--text-3)', paddingTop: 4 }}>No drifting compounds.</div>
-        )}
-      </div>
-    </div>
-  )
+function alertVariant(status) {
+  return status === 'drift' ? 'danger' : 'warn'
 }
 
 export default function Overview({ refreshKey }) {
-  const [uploads, setUploads] = useState(null)
-  const [fleet, setFleet] = useState(null)
-  const [strains, setStrains] = useState(null)
+  const [uploads, setUploads]   = useState(null)
+  const [fleet, setFleet]       = useState(null)
+  const [strains, setStrains]   = useState(null)
   const [coaCount, setCoaCount] = useState(null)
-  const [driftOpen, setDriftOpen] = useState(false)
+  const [alerts, setAlerts]     = useState(null)
 
   useEffect(() => {
     setUploads(null)
@@ -116,16 +57,21 @@ export default function Overview({ refreshKey }) {
       .catch(() => setCoaCount(0))
   }, [refreshKey])
 
-  const drift = computeDrift(fleet)
+  useEffect(() => {
+    setAlerts(null)
+    fetchConsistencyAlerts()
+      .then(setAlerts)
+      .catch(() => setAlerts([]))
+  }, [refreshKey])
+
   const avgStability = strains && strains.length > 0
     ? Math.round(strains.reduce((s, x) => s + (x.stability ?? 0), 0) / strains.length)
     : 0
-  const flaggedCount = strains ? strains.filter(s => s.status === 'watch' || s.status === 'drift').length : 0
+
+  const flaggedCount = alerts ? new Set(alerts.map(a => a.strain)).size : 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {driftOpen && <DriftModal drift={drift} onClose={() => setDriftOpen(false)} />}
-
       <Grid cols={4} gap={8}>
         <StatCard
           label="Active Strains"
@@ -143,14 +89,12 @@ export default function Overview({ refreshKey }) {
           sub={strains ? (avgStability >= 90 ? 'Excellent' : avgStability >= 80 ? 'Good' : 'Needs attention') : 'Loading…'}
           subVariant={strains && avgStability < 80 ? 'warn' : undefined}
         />
-        <div onClick={() => setDriftOpen(true)} style={{ cursor: 'pointer' }}>
-          <StatCard
-            label="Flagged Batches"
-            value={strains ? flaggedCount : '—'}
-            sub={strains ? (flaggedCount ? 'Click to view drift' : 'All within tolerance') : 'Loading…'}
-            subVariant={flaggedCount > 0 ? 'warn' : undefined}
-          />
-        </div>
+        <StatCard
+          label="Flagged Batches"
+          value={alerts ? flaggedCount : '—'}
+          sub={alerts ? (flaggedCount ? `${flaggedCount} strain${flaggedCount !== 1 ? 's' : ''} flagged` : 'All within tolerance') : 'Loading…'}
+          subVariant={flaggedCount > 0 ? 'warn' : undefined}
+        />
       </Grid>
 
       <Grid cols={2} gap={10}>
@@ -196,26 +140,25 @@ export default function Overview({ refreshKey }) {
         </Panel>
 
         <Panel title="Consistency Alerts">
-          {fleet === null ? (
+          {alerts === null ? (
             <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px 0' }}>Loading…</div>
-          ) : drift.length === 0 ? (
+          ) : alerts.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px 0' }}>
-              {fleet.length < 2
-                ? 'Upload more COAs to detect drift across batches.'
-                : 'All strains within tolerance.'}
+              All strains within tolerance.
             </div>
           ) : (
-            <>
-              {drift.map((a, i) => (
-                <Row key={a.label} last={i === drift.length - 1}>
-                  <span style={{ color: 'var(--text-2)' }}>{a.label}</span>
-                  <Badge variant="warn">{a.detail}</Badge>
-                </Row>
-              ))}
-              <div style={{ fontSize: 11, color: 'var(--text-3)', paddingTop: 10 }}>
-                All other strains within tolerance
-              </div>
-            </>
+            alerts.map((a, i) => (
+              <Row key={`${a.strain}-${a.compound}`} last={i === alerts.length - 1}>
+                <span style={{ flex: 1, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                  {a.strain}
+                  <span style={{ color: 'var(--text-3)' }}> · {a.compound}</span>
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0, marginRight: 6 }}>
+                  {a.cv_pct.toFixed(1)}% variation
+                </span>
+                <Badge variant={alertVariant(a.status)}>{a.status}</Badge>
+              </Row>
+            ))
           )}
         </Panel>
       </Grid>

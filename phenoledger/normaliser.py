@@ -24,7 +24,13 @@ def fix_font_artifacts(text: str) -> str:
 
 
 def is_doubled(text: str) -> bool:
-    """Return True if the string appears to be a doubled PDF artifact."""
+    """Return True if the string appears to be a doubled PDF artifact.
+
+    Safe for cannabis COA data: compound names (THCA, CBD, CBGA) and lab
+    names contain no adjacent repeated character pairs, so false-positives
+    are not a practical risk. Pure-digit strings are excluded to protect
+    numeric values like batch numbers.
+    """
     t = text.strip()
     if len(t) < 4 or len(t) % 2 != 0:
         return False
