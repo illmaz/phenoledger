@@ -50,14 +50,20 @@ function PropagationModal({ plant, strainName, onClose, onSaved }) {
     propagation_date: '', clones_taken: '',
     grow_type: 'indoor', report_id: '', notes: '',
   })
-  const [batches, setBatches] = useState([])
-  const [saving, setSaving]   = useState(false)
-  const [error, setError]     = useState('')
+  const [batches, setBatches]               = useState([])
+  const [batchesLoading, setBatchesLoading] = useState(true)
+  const [batchesError, setBatchesError]     = useState(false)
+  const [saving, setSaving]                 = useState(false)
+  const [error, setError]                   = useState('')
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   useEffect(() => {
-    fetchStrainBatches(strainName).then(setBatches).catch(() => {})
+    setBatchesLoading(true)
+    setBatchesError(false)
+    fetchStrainBatches(strainName)
+      .then(data => { setBatches(data); setBatchesLoading(false) })
+      .catch(() => { setBatchesError(true); setBatchesLoading(false) })
   }, [strainName])
 
   async function handleSubmit(e) {
@@ -137,15 +143,31 @@ function PropagationModal({ plant, strainName, onClose, onSaved }) {
 
           <div>
             <label style={lbl}>Link to COA Batch</label>
-            <select style={inp} value={form.report_id} onChange={e => set('report_id', e.target.value)}>
-              <option value="">— None —</option>
-              {batches.map(b => (
-                <option key={b.report_id} value={b.report_id}>
-                  {fmtDate(b.date)} · #{b.report_id.slice(0, 8).toUpperCase()}
-                  {b.thca != null ? ` · THCA ${b.thca}%` : ''}
-                </option>
-              ))}
+            <select
+              style={inp}
+              value={form.report_id}
+              onChange={e => set('report_id', e.target.value)}
+              disabled={batchesLoading || batchesError}
+            >
+              {batchesLoading ? (
+                <option value="">Loading batches…</option>
+              ) : batchesError ? (
+                <option value="">Failed to load batches</option>
+              ) : (
+                <>
+                  <option value="">— None —</option>
+                  {batches.map(b => (
+                    <option key={b.report_id} value={b.report_id}>
+                      {fmtDate(b.date)} · #{b.report_id.slice(0, 8).toUpperCase()}
+                      {b.thca != null ? ` · THCA ${b.thca}%` : ''}
+                    </option>
+                  ))}
+                </>
+              )}
             </select>
+            {batchesError && (
+              <div style={{ fontSize: 11, color: '#f87171', marginTop: 4 }}>Failed to load COA batches.</div>
+            )}
           </div>
 
           <div>
@@ -281,6 +303,7 @@ function MotherPlantBlock({ mp, onRecord }) {
           )}
         </div>
         <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+          {mp.retired_at && <Badge variant="gray">Retired</Badge>}
           <Badge variant={HEALTH_VARIANT[mp.health_status] ?? 'gray'}>
             {mp.health_status ?? '—'}
           </Badge>
@@ -311,9 +334,10 @@ function MotherPlantBlock({ mp, onRecord }) {
         </div>
         {propagations.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {propagations.map((p, i) => (
-              <PropagationRow key={p.id ?? i} prop={p} />
-            ))}
+            {propagations.map(p => {
+              if (!p.id) console.error('PropagationRow missing id:', p)
+              return <PropagationRow key={p.id} prop={p} />
+            })}
           </div>
         ) : (
           <div style={{ fontSize: 11, color: 'var(--text-3)' }}>

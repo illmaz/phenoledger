@@ -63,7 +63,10 @@ export async function createPropagation(payload) {
     headers: { 'Content-Type': 'application/json', ...await authHeaders() },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) throw new Error(`${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
   return res.json()
 }
 
@@ -93,7 +96,10 @@ export async function createSeedLot(payload) {
     headers: { 'Content-Type': 'application/json', ...await authHeaders() },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) throw new Error(`${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
   return res.json()
 }
 
@@ -102,7 +108,10 @@ export async function deleteSeedLot(id) {
     method: 'DELETE',
     headers: await authHeaders(),
   })
-  if (!res.ok) throw new Error(`${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
   return res.json()
 }
 
@@ -118,7 +127,10 @@ export async function createMotherPlant(payload) {
     headers: { 'Content-Type': 'application/json', ...await authHeaders() },
     body: JSON.stringify(payload),
   })
-  if (!res.ok) throw new Error(`${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
   return res.json()
 }
 
@@ -126,9 +138,12 @@ export async function retireMotherPlant(id) {
   const res = await fetch(`${BASE}/mother-plants/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...await authHeaders() },
-    body: JSON.stringify({ retired_at: new Date().toISOString() }),
+    body: JSON.stringify({}),
   })
-  if (!res.ok) throw new Error(`${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
   return res.json()
 }
 
@@ -137,7 +152,10 @@ export async function deleteMotherPlant(id) {
     method: 'DELETE',
     headers: await authHeaders(),
   })
-  if (!res.ok) throw new Error(`${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
   return res.json()
 }
 

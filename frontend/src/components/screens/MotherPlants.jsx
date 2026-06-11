@@ -38,6 +38,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
         total_clones_taken:  form.total_clones_taken  ? parseInt(form.total_clones_taken, 10)  : null,
         strain_name:         form.strain_name         || null,
         established_date:    form.established_date    || null,
+        hlvd_result:         form.hlvd_tested         ? form.hlvd_result : null,
         hlvd_test_date:      form.hlvd_test_date      || null,
         last_cloned_date:    form.last_cloned_date     || null,
         origin_country:      form.origin_country       || null,
@@ -199,7 +200,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
 
 // ── PlantRow ──────────────────────────────────────────────────────────────────
 
-function PlantRow({ plant, onDelete, onRetire, last }) {
+function PlantRow({ plant, onDelete, onRetire, last, retiring }) {
   const [hovered, setHovered] = useState(false)
   const strainName = plant.strains?.name ?? plant.strain_name ?? '—'
   const isRetired  = Boolean(plant.retired_at)
@@ -260,9 +261,12 @@ function PlantRow({ plant, onDelete, onRetire, last }) {
           <button
             onClick={() => onRetire(plant.id, plant.plant_code)}
             title="Retire"
+            disabled={retiring}
             style={{
               padding: '2px 4px', border: 'none', background: 'transparent',
-              cursor: 'pointer', color: '#fb923c', display: 'flex', alignItems: 'center',
+              cursor: retiring ? 'not-allowed' : 'pointer',
+              color: retiring ? 'var(--text-3)' : '#fb923c',
+              display: 'flex', alignItems: 'center',
             }}
           >
             <Archive size={11} />
@@ -288,9 +292,11 @@ function PlantRow({ plant, onDelete, onRetire, last }) {
 // ── MotherPlants ──────────────────────────────────────────────────────────────
 
 export default function MotherPlants() {
-  const [plants, setPlants]       = useState(null)
-  const [strains, setStrains]     = useState([])
-  const [showModal, setShowModal] = useState(false)
+  const [plants, setPlants]           = useState(null)
+  const [strains, setStrains]         = useState([])
+  const [showModal, setShowModal]     = useState(false)
+  const [retiringId, setRetiringId]   = useState(null)
+  const [actionError, setActionError] = useState(null)
 
   function load() {
     fetchMotherPlants().then(setPlants).catch(() => setPlants([]))
@@ -303,21 +309,30 @@ export default function MotherPlants() {
 
   async function handleDelete(id, code) {
     if (!window.confirm(`Delete mother plant "${code}"? This cannot be undone.`)) return
+    setActionError(null)
     try {
       await deleteMotherPlant(id)
       setPlants(prev => prev ? prev.filter(p => p.id !== id) : prev)
-    } catch { /* silent */ }
+    } catch (err) {
+      setActionError(`Failed to delete "${code}": ${err.message}`)
+    }
   }
 
   async function handleRetire(id, code) {
     if (!window.confirm(`Retire mother plant "${code}"? It will remain visible but marked as retired.`)) return
+    setActionError(null)
+    setRetiringId(id)
     try {
       await retireMotherPlant(id)
       setPlants(prev => prev
         ? prev.map(p => p.id === id ? { ...p, retired_at: new Date().toISOString() } : p)
         : prev
       )
-    } catch { /* silent */ }
+    } catch (err) {
+      setActionError(`Failed to retire "${code}": ${err.message}`)
+    } finally {
+      setRetiringId(null)
+    }
   }
 
   const hdr = { fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }
@@ -344,6 +359,10 @@ export default function MotherPlants() {
           <Plus size={13} /> Register Plant
         </button>
       </div>
+
+      {actionError && (
+        <div style={{ fontSize: 12, color: '#f87171' }}>{actionError}</div>
+      )}
 
       {/* Stats */}
       {plants && plants.length > 0 && (
@@ -383,6 +402,7 @@ export default function MotherPlants() {
               onDelete={handleDelete}
               onRetire={handleRetire}
               last={i === plants.length - 1}
+              retiring={retiringId === p.id}
             />
           ))}
         </Panel>

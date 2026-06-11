@@ -64,11 +64,17 @@ def extract_header(pdf_path: str | Path) -> dict:
         text = pdf.pages[0].extract_text() or ""
     header = {}
     # Dates are in format 20Mar2025 — search anywhere in text
+    from datetime import datetime as _dt
     dates = re.findall(r'(\d{2}[A-Za-z]{3}\d{4})', text)
+    def _to_iso(raw):
+        try:
+            return _dt.strptime(raw, "%d%b%Y").strftime("%Y-%m-%d")
+        except ValueError:
+            return None
     if dates:
-        header["report_date"] = dates[0]
+        header["report_date"] = _to_iso(dates[0])
     if len(dates) > 1:
-        header["received_date"] = dates[-1]
+        header["received_date"] = _to_iso(dates[-1])
     # Strain name: use positional extraction — strain words appear at top ~75-85px
     # The garbled text is two columns overlapping; strain name words are on the right
     try:

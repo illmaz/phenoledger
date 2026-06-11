@@ -581,8 +581,18 @@ def get_pdf_url(upload_id: str, auth = Depends(verify_token)):
 
 
 @app.delete("/strain/{strain_name}")
-def delete_strain(strain_id: str, current_user = Depends(verify_token)):
+def delete_strain(strain_name: str, current_user = Depends(verify_token)):
     now = datetime.now(timezone.utc).isoformat()
+    strain_row = supabase.table("strains") \
+        .select("id") \
+        .eq("farm_id", FARM_ID) \
+        .eq("name", strain_name) \
+        .is_("deleted_at", "null") \
+        .execute()
+    strain_data: list[dict] = strain_row.data  # type: ignore[assignment]
+    if not strain_data:
+        raise HTTPException(status_code=404, detail="strain not found")
+    strain_id = strain_data[0]["id"]
     reports = supabase.table("coa_reports") \
         .select("id, upload_id") \
         .eq("farm_id", FARM_ID) \
@@ -615,7 +625,7 @@ def delete_strain(strain_id: str, current_user = Depends(verify_token)):
         .eq("id", strain_id) \
         .eq("farm_id", FARM_ID) \
         .execute()
-    return {"deleted": strain_id}
+    return {"deleted": strain_name}
 
 
 # ── Genetic Lineage ───────────────────────────────────────────────────────────

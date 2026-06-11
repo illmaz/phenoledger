@@ -78,7 +78,11 @@ def extract_header(pdf_path: str | Path) -> dict:
     header = {}
     m = re.search(r"Completed:\s+(\d{2}/\d{2}/\d{4})", text)
     if m:
-        header["report_date"] = m.group(1)
+        try:
+            from datetime import datetime as _dt
+            header["report_date"] = _dt.strptime(m.group(1), "%m/%d/%Y").strftime("%Y-%m-%d")
+        except ValueError:
+            header["report_date"] = m.group(1)
     m = re.search(r"Strain:\s+([^\n]+?)\s+Completed:", text)
     if m:
         header["sample_name"] = m.group(1).strip()

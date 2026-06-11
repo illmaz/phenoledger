@@ -247,9 +247,10 @@ function LotRow({ lot, onDelete, last }) {
 // ── SeedLots ──────────────────────────────────────────────────────────────────
 
 export default function SeedLots() {
-  const [lots, setLots]         = useState(null)
-  const [strains, setStrains]   = useState([])
-  const [showModal, setShowModal] = useState(false)
+  const [lots, setLots]               = useState(null)
+  const [strains, setStrains]         = useState([])
+  const [showModal, setShowModal]     = useState(false)
+  const [actionError, setActionError] = useState(null)
 
   function load() {
     fetchSeedLots().then(setLots).catch(() => setLots([]))
@@ -262,10 +263,13 @@ export default function SeedLots() {
 
   async function handleDelete(id, code) {
     if (!window.confirm(`Delete seed lot "${code}"? This cannot be undone.`)) return
+    setActionError(null)
     try {
       await deleteSeedLot(id)
       setLots(prev => prev ? prev.filter(l => l.id !== id) : prev)
-    } catch { /* silent */ }
+    } catch (err) {
+      setActionError(`Failed to delete "${code}": ${err.message}`)
+    }
   }
 
   const hdr = { fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }
@@ -295,6 +299,10 @@ export default function SeedLots() {
           <Plus size={13} /> Register Lot
         </button>
       </div>
+
+      {actionError && (
+        <div style={{ fontSize: 12, color: '#f87171' }}>{actionError}</div>
+      )}
 
       {/* Stats */}
       {lots && lots.length > 0 && (
