@@ -3,11 +3,12 @@ import re
 import uuid
 import tempfile
 import logging
+import hashlib
 from typing import Optional
 from pydantic import BaseModel
-from fastapi import FastAPI, UploadFile, HTTPException
+from fastapi import FastAPI, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from api.dependencies import s3, supabase
+from api.dependencies import s3, supabase, verify_token
 from phenoledger.lab_detector import detect, LabFamily
 from phenoledger.extractors.sclabs import extract as sclabs_extract, extract_header as sclabs_header
 from phenoledger.extractors.confident_lims import extract as confident_lims_extract, extract_header as confident_lims_header
@@ -78,11 +79,20 @@ def health():
 
 
 @app.post("/upload")
-async def upload_coa(file: UploadFile):
+async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="only PDF files accepted")
 
     contents = await file.read()
+
+    content_hash = hashlib.sha256(contents).hexdigest()
+    existing = supabase.table("coa_uploads") \
+        .select("id") \
+        .eq("farm_id", FARM_ID) \
+        .eq("content_hash", content_hash) \
+        .execute()
+    if existing.data:
+        raise HTTPException(status_code=409, detail="This COA has already been uploaded")
 
     s3_key = f"coas/{uuid.uuid4()}.pdf"
     s3.put_object(
@@ -98,6 +108,7 @@ async def upload_coa(file: UploadFile):
         "s3_key": s3_key,
         "original_filename": file.filename,
         "file_size_bytes": len(contents),
+        "content_hash": content_hash,
         "extraction_status": "pending",
     }).execute()
 
@@ -216,7 +227,7 @@ async def upload_coa(file: UploadFile):
 
 
 @app.get("/uploads")
-def list_uploads():
+def list_uploads(current_user = Depends(verify_token)):
     rows = supabase.table("coa_uploads") \
         .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date, sample_name)") \
         .eq("farm_id", FARM_ID) \
@@ -241,7 +252,7 @@ def list_uploads():
 
 
 @app.get("/uploads/count")
-def uploads_count():
+def uploads_count(current_user = Depends(verify_token)):
     rows = (supabase.table("coa_uploads")
         .select("*", count="exact")
         .eq("farm_id", FARM_ID)
@@ -250,7 +261,7 @@ def uploads_count():
     return {"count": rows.count or 0}
 
 @app.get("/consistency")
-def consistency():
+def consistency(current_user = Depends(verify_token)):
     rows = supabase.table("cannabinoid_results") \
         .select("value_pct, coa_reports(sample_name, coa_uploads(original_filename))") \
         .eq("farm_id", FARM_ID) \
@@ -272,7 +283,7 @@ def consistency():
     return result
 
 @app.get("/strains")
-def list_strains():
+def list_strains(current_user = Depends(verify_token)):
     rows = supabase.table("cannabinoid_results") \
         .select("value_pct, created_at, coa_reports(sample_name, lab_name, coa_uploads(original_filename))") \
         .eq("farm_id", FARM_ID) \
@@ -324,7 +335,7 @@ def list_strains():
 
 
 @app.get("/strain/{strain_name}/cannabinoids")
-def strain_cannabinoids(strain_name: str):
+def strain_cannabinoids(strain_name: str, current_user = Depends(verify_token)):
     reports_rows = supabase.table("coa_reports") \
         .select("id, sample_name, coa_uploads(original_filename)") \
         .eq("farm_id", FARM_ID) \
@@ -357,7 +368,7 @@ def strain_cannabinoids(strain_name: str):
     )
 
 @app.get("/strain/{strain_name}/batches")
-def strain_batches(strain_name: str):
+def strain_batches(strain_name: str, current_user = Depends(verify_token)):
     reports_rows = supabase.table("coa_reports") \
         .select("id, upload_id, sample_name, report_date, coa_uploads(original_filename, extraction_status, created_at)")\
         .eq("farm_id", FARM_ID) \
@@ -419,7 +430,7 @@ def strain_batches(strain_name: str):
 
 
 @app.get("/strain/{strain_name}/terpenes")
-def strain_terpenes(strain_name: str):
+def strain_terpenes(strain_name: str, current_user = Depends(verify_token)):
     reports_rows = supabase.table("coa_reports") \
         .select("id, sample_name, coa_uploads(original_filename)") \
         .eq("farm_id", FARM_ID) \
@@ -451,7 +462,7 @@ def strain_terpenes(strain_name: str):
     )
 
 @app.get("/upload/{upload_id}/pdf")
-def get_pdf_url(upload_id: str):
+def get_pdf_url(upload_id: str, current_user = Depends(verify_token)):
     row = supabase.table("coa_uploads") \
         .select("s3_bucket, s3_key, farm_id") \
         .eq("id", upload_id) \
@@ -470,7 +481,7 @@ def get_pdf_url(upload_id: str):
     return {"url": url}
 
 @app.delete("/strain/{strain_name}")
-def delete_strain(strain_name: str):
+def delete_strain(strain_name: str, current_user = Depends(verify_token)):
     now = datetime.now(timezone.utc).isoformat()
     reports = supabase.table("coa_reports") \
         .select("id, upload_id") \
@@ -494,7 +505,7 @@ def delete_strain(strain_name: str):
 #-------Genetic Lineage ─────────────────────────────────────────────────
 
 @app.get("/mother-plants")
-def list_mother_plants():
+def list_mother_plants(current_user = Depends(verify_token)):
     rows = supabase.table("mother_plants") \
         .select("*, strains(name)") \
         .eq("farm_id", FARM_ID) \
@@ -504,7 +515,7 @@ def list_mother_plants():
     return rows.data
 
 @app.post("/mother-plants")
-def create_mother_plant(payload: MotherPlantIn):
+def create_mother_plant(payload: MotherPlantIn, current_user = Depends(verify_token)):
     strain_id = None
     if payload.strain_name:
         existing = supabase.table("strains") \
@@ -536,7 +547,7 @@ def create_mother_plant(payload: MotherPlantIn):
     return row_data[0] if row_data else {}
 
 @app.delete("/mother-plants/{plant_id}")
-def delete_mother_plant(plant_id: str):
+def delete_mother_plant(plant_id: str, current_user = Depends(verify_token)):
     supabase.table("mother_plants") \
         .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
         .eq("id", plant_id) \
@@ -545,7 +556,7 @@ def delete_mother_plant(plant_id: str):
     return {"deleted": plant_id}
 
 @app.get("/seed-lots")
-def list_seed_lots():
+def list_seed_lots(current_user = Depends(verify_token)):
     rows = supabase.table("seed_lots") \
         .select("*, strains(name)") \
         .eq("farm_id", FARM_ID) \
@@ -555,13 +566,13 @@ def list_seed_lots():
     return rows.data
 
 @app.post("/seed-lots")
-def create_seed_lot(data: dict):
+def create_seed_lot(data: dict, current_user = Depends(verify_token)):
     data["farm_id"] = FARM_ID
     row = supabase.table("seed_lots").insert(data).execute()
     return row.data[0]
 
 @app.delete("/seed-lots/{lot_id}")
-def delete_seed_lot(lot_id: str):
+def delete_seed_lot(lot_id: str, current_user = Depends(verify_token)):
     supabase.table("seed_lots") \
         .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
         .eq("id", lot_id) \
@@ -570,7 +581,7 @@ def delete_seed_lot(lot_id: str):
     return {"deleted": lot_id}
 
 @app.get("/strain/{strain_name}/lineage")
-def strain_lineage(strain_name: str):
+def strain_lineage(strain_name: str, current_user = Depends(verify_token)):
     sr = supabase.table("strains") \
         .select("id") \
         .eq("farm_id", FARM_ID) \

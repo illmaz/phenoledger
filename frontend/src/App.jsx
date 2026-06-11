@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from './supabase'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
 import Login from './components/screens/Login'
@@ -27,15 +28,31 @@ const SCREENS = {
 }
 
 export default function App() {
-  const [token, setToken]       = useState(null)
-  const [active, setActive]     = useState('overview')
+  const [session, setSession]     = useState(undefined) // undefined = initial load
+  const [active, setActive]       = useState('overview')
   const [uploadKey, setUploadKey] = useState(0)
 
-  if (!token) {
-    return <Login onLogin={setToken} />
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setSession(session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Waiting for initial session check
+  if (session === undefined) return null
+
+  if (!session) {
+    return <Login />
   }
 
   const { bc, Component } = SCREENS[active] || SCREENS['overview']
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+  }
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
@@ -44,7 +61,7 @@ export default function App() {
         <Topbar
           breadcrumb={bc}
           onUploadSuccess={() => setUploadKey(k => k + 1)}
-          onLogout={() => setToken(null)}
+          onLogout={handleLogout}
         />
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
           <Component refreshKey={uploadKey} />

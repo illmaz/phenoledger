@@ -1,57 +1,66 @@
+import { supabase } from './supabase'
+
 const BASE = 'http://localhost:8001'
 
+async function authHeaders() {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token
+    ? { Authorization: `Bearer ${session.access_token}` }
+    : {}
+}
+
 export async function fetchUploads() {
-  const res = await fetch(`${BASE}/uploads`)
+  const res = await fetch(`${BASE}/uploads`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
 
 export async function fetchConsistency() {
-  const res = await fetch(`${BASE}/consistency`)
+  const res = await fetch(`${BASE}/consistency`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
 
 export async function fetchStrains() {
-  const res = await fetch(`${BASE}/strains`)
+  const res = await fetch(`${BASE}/strains`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
 
 export async function fetchStrainCannabinoids(strainName) {
-  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/cannabinoids`)
+  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/cannabinoids`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
 
 export async function fetchStrainTerpenes(strainName) {
-  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/terpenes`)
+  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/terpenes`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
 
 export async function fetchStrainBatches(strainName) {
-  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/batches`)
+  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/batches`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
 
 export async function fetchUploadsCount() {
-  const res = await fetch(`${BASE}/uploads/count`)
+  const res = await fetch(`${BASE}/uploads/count`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   const data = await res.json()
   return data.count
 }
 
 export async function fetchUploadPdf(uploadId) {
-  const res = await fetch(`${BASE}/upload/${encodeURIComponent(uploadId)}/pdf`)
+  const res = await fetch(`${BASE}/upload/${encodeURIComponent(uploadId)}/pdf`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   const data = await res.json()
   return data.url
 }
 
 export async function fetchMotherPlants() {
-  const res = await fetch(`${BASE}/mother-plants`)
+  const res = await fetch(`${BASE}/mother-plants`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
@@ -59,7 +68,7 @@ export async function fetchMotherPlants() {
 export async function createMotherPlant(payload) {
   const res = await fetch(`${BASE}/mother-plants`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`${res.status}`)
@@ -67,19 +76,25 @@ export async function createMotherPlant(payload) {
 }
 
 export async function deleteMotherPlant(id) {
-  const res = await fetch(`${BASE}/mother-plants/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  const res = await fetch(`${BASE}/mother-plants/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
 
 export async function fetchLineage(strainName) {
-  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/lineage`)
+  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/lineage`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
 
 export async function deleteStrain(strainName) {
-  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}`, { method: 'DELETE' })
+  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
@@ -87,7 +102,11 @@ export async function deleteStrain(strainName) {
 export async function uploadCOA(file) {
   const form = new FormData()
   form.append('file', file)
-  const res = await fetch(`${BASE}/upload`, { method: 'POST', body: form })
+  const res = await fetch(`${BASE}/upload`, {
+    method: 'POST',
+    headers: await authHeaders(), // Content-Type set automatically by browser for FormData
+    body: form,
+  })
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(body.detail || 'Upload failed')
   return body

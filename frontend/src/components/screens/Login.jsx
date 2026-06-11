@@ -1,26 +1,22 @@
 import { useState } from 'react'
+import { supabase } from '../../supabase'
 
-const DEMO_EMAIL    = 'demo@phenoledger.com'
-const DEMO_PASSWORD = 'Phenoledger123!'
-
-export default function Login({ onLogin }) {
+export default function Login() {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     setLoading(true)
-    setTimeout(() => {
-      if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-        onLogin('demo-session-' + Date.now())
-      } else {
-        setError('Invalid credentials')
-        setLoading(false)
-      }
-    }, 350)
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    }
+    // on success, App.jsx's onAuthStateChange fires and renders the main app
   }
 
   const inputStyle = (hasError) => ({
