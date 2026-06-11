@@ -10,6 +10,7 @@ from phenoledger.extractors.sclabs import extract as sclabs_extract, extract_hea
 from phenoledger.extractors.confident_lims import extract as confident_lims_extract, extract_header as confident_lims_header
 from phenoledger.extractors.botanacor import extract as botanacor_extract, extract_header as botanacor_header
 from phenoledger.extractors.analytics_labs import extract as analytics_labs_extract, extract_header as analytics_labs_header
+from datetime import datetime
 
 FARM_ID = "fd1c1598-8769-4da9-a885-2f74bca047d6"
 
@@ -160,6 +161,31 @@ async def upload_coa(file: UploadFile):
             "reported_batch_number": header.get("reported_batch_number"),
         }).eq("id", report_id).execute()
 
+        # Auto-link to existing strain or create new one
+        strain_name = header.get("sample_name") or _display_name(file.filename)
+        strain_name = strain_name.split(" Received:")[0].split(" - Flower")[0].strip()
+
+        existing = supabase.table("strains") \
+            .select("id") \
+            .eq("farm_id", FARM_ID) \
+            .eq("name", strain_name) \
+            .is_("deleted_at", "null") \
+            .execute()
+
+        if existing.data:
+            strain_id = existing.data[0]["id"]
+        else:
+            new_strain = supabase.table("strains").insert({
+                "farm_id": FARM_ID,
+                "name": strain_name,
+            }).execute()
+            strain_id = new_strain.data[0]["id"]  # type: ignore[index]
+
+        supabase.table("coa_reports") \
+            .update({"strain_id": strain_id}) \
+            .eq("id", report_id) \
+            .execute()
+
     
     supabase.table("coa_uploads").update({
         "extraction_status": "confirmed",
@@ -181,6 +207,7 @@ def list_uploads():
     rows = supabase.table("coa_uploads") \
         .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date, sample_name)") \
         .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .limit(10) \
         .execute()
@@ -205,6 +232,7 @@ def uploads_count():
     rows = (supabase.table("coa_uploads")
         .select("*", count="exact")
         .eq("farm_id", FARM_ID)
+        .is_("deleted_at", "null")
         .execute())
     return {"count": rows.count or 0}
 
@@ -287,6 +315,7 @@ def strain_cannabinoids(strain_name: str):
     reports_rows = supabase.table("coa_reports") \
         .select("id, sample_name, coa_uploads(original_filename)") \
         .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
         .execute()
     reports_data: list[dict] = reports_rows.data  # type: ignore[assignment]
     matching_ids = []
@@ -319,6 +348,7 @@ def strain_batches(strain_name: str):
     reports_rows = supabase.table("coa_reports") \
         .select("id, upload_id, sample_name, report_date, coa_uploads(original_filename, extraction_status, created_at)")\
         .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
         .execute()
     reports_data: list[dict] = reports_rows.data  # type: ignore[assignment]
     matching = []
@@ -380,6 +410,7 @@ def strain_terpenes(strain_name: str):
     reports_rows = supabase.table("coa_reports") \
         .select("id, sample_name, coa_uploads(original_filename)") \
         .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
         .execute()
     reports_data: list[dict] = reports_rows.data  # type: ignore[assignment]
     matching_ids = []
@@ -412,6 +443,7 @@ def get_pdf_url(upload_id: str):
         .select("s3_bucket, s3_key, farm_id") \
         .eq("id", upload_id) \
         .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
         .single() \
         .execute()
     if not row.data:
@@ -423,3 +455,25 @@ def get_pdf_url(upload_id: str):
         ExpiresIn=900,
     )
     return {"url": url}
+
+@app.delete("/strain/{strain_name}")
+def delete_strain(strain_name: str):
+    now = datetime.utcnow().isoformat()
+    reports = supabase.table("coa_reports") \
+        .select("id, upload_id") \
+        .eq("farm_id", FARM_ID) \
+        .eq("sample_name", strain_name) \
+        .is_("deleted_at", "null") \
+        .execute()
+    data: list[dict] = reports.data or []  # type: ignore[assignment]
+    for r in data:
+        supabase.table("coa_reports") \
+            .update({"deleted_at": now}) \
+            .eq("id", r["id"]) \
+            .execute()
+        if r.get("upload_id"):
+            supabase.table("coa_uploads") \
+                .update({"deleted_at": now}) \
+                .eq("id", r["upload_id"]) \
+                .execute()
+    return {"deleted": strain_name}

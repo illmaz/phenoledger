@@ -50,6 +50,12 @@ export async function fetchUploadPdf(uploadId) {
   return data.url
 }
 
+export async function deleteStrain(strainName) {
+  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
 export async function uploadCOA(file) {
   const form = new FormData()
   form.append('file', file)

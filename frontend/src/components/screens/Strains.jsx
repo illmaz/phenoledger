@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Search, LayoutGrid, List, Info } from 'lucide-react'
+import { ArrowLeft, Search, LayoutGrid, List, Info, Trash2 } from 'lucide-react'
 import { StatCard, Panel, Badge, HBar, Grid } from '../ui'
-import { fetchStrains, fetchStrainCannabinoids, fetchStrainTerpenes, fetchStrainBatches } from '../../api'
+import { fetchStrains, fetchStrainCannabinoids, fetchStrainTerpenes, fetchStrainBatches, deleteStrain } from '../../api'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -150,9 +150,15 @@ function StatusBadgeWithTooltip({ status }) {
 
 // ── StrainCard (grid view) ───────────────────────────────────────────────────
 
-function StrainCard({ strain, thca, status, stability, onClick }) {
+function StrainCard({ strain, thca, status, stability, onClick, onDelete }) {
   const [hovered, setHovered] = useState(false)
   const barWidth = thca != null ? Math.min((thca / 35) * 100, 100) : 0
+
+  async function handleDelete(e) {
+    e.stopPropagation()
+    if (!window.confirm(`Delete "${strain}" and all its COA data? This cannot be undone.`)) return
+    try { await deleteStrain(strain); onDelete(strain) } catch { /* silent */ }
+  }
 
   return (
     <div
@@ -164,6 +170,7 @@ function StrainCard({ strain, thca, status, stability, onClick }) {
         border: `0.5px solid ${hovered ? '#444' : 'var(--border)'}`,
         borderRadius: 8, padding: '14px 16px', cursor: 'pointer',
         transition: 'background 0.1s, border-color 0.1s',
+        position: 'relative',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -190,14 +197,35 @@ function StrainCard({ strain, thca, status, stability, onClick }) {
           {stability != null ? `${stability}/100` : '—'}
         </span>
       </div>
+      {hovered && (
+        <button
+          onClick={handleDelete}
+          title="Delete strain"
+          style={{
+            position: 'absolute', bottom: 10, right: 10,
+            padding: '3px 5px', border: 'none', borderRadius: 4,
+            background: 'rgba(248,113,113,0.12)', color: '#f87171',
+            cursor: 'pointer', display: 'flex', alignItems: 'center',
+          }}
+        >
+          <Trash2 size={11} />
+        </button>
+      )}
     </div>
   )
 }
 
 // ── StrainRow (list view) ────────────────────────────────────────────────────
 
-function StrainRow({ strain, thca, upload_count, status, stability, last, onClick }) {
+function StrainRow({ strain, thca, upload_count, status, stability, last, onClick, onDelete }) {
   const [hovered, setHovered] = useState(false)
+
+  async function handleDelete(e) {
+    e.stopPropagation()
+    if (!window.confirm(`Delete "${strain}" and all its COA data? This cannot be undone.`)) return
+    try { await deleteStrain(strain); onDelete(strain) } catch { /* silent */ }
+  }
+
   return (
     <div
       onClick={onClick}
@@ -227,13 +255,27 @@ function StrainRow({ strain, thca, upload_count, status, stability, last, onClic
       <div style={{ width: 110, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
         <StatusBadgeWithTooltip status={status} />
       </div>
+      <div style={{ width: 24, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+        {hovered && (
+          <button
+            onClick={handleDelete}
+            title="Delete strain"
+            style={{
+              padding: '2px 4px', border: 'none', background: 'transparent',
+              cursor: 'pointer', color: '#f87171', display: 'flex', alignItems: 'center',
+            }}
+          >
+            <Trash2 size={11} />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
 
 // ── StrainList ───────────────────────────────────────────────────────────────
 
-function StrainList({ strains, onSelect }) {
+function StrainList({ strains, onSelect, onDelete }) {
   const [query, setQuery]                             = useState('')
   const [view, setView]                               = useState('grid')
   const [labFilter, setLabFilter]                     = useState('all')
@@ -269,9 +311,9 @@ function StrainList({ strains, onSelect }) {
 
   const isFiltering = labFilter !== 'all' || consistencyFilter !== 'all' || sampleTypeFilter !== 'all' || Boolean(query)
   const anyFiltered = filtered.length > 0
-  const avg = anyFiltered ? filtered.reduce((s, x) => s + (x.thca ?? 0), 0) / filtered.length : 0
-  const hi  = anyFiltered ? Math.max(...filtered.map(x => x.thca ?? 0)) : 0
-  const lo  = anyFiltered ? Math.min(...filtered.map(x => x.thca ?? Infinity)) : 0
+  const totalBatches   = filtered.reduce((s, x) => s + (x.upload_count ?? 0), 0)
+  const avgStability   = anyFiltered ? Math.round(filtered.reduce((s, x) => s + (x.stability ?? 0), 0) / filtered.length) : 0
+  const needsAttention = filtered.filter(s => s.status === 'watch' || s.status === 'drift').length
 
   const pillGroup = (options, active, setActive) => (
     <div style={{ display: 'flex', border: '0.5px solid var(--border)', borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
@@ -372,12 +414,12 @@ function StrainList({ strains, onSelect }) {
       {strains.length > 0 && (
         <Grid cols={4} gap={8}>
           <StatCard
-            label="Strains"
+            label="Total Strains"
             value={isFiltering ? `${filtered.length} / ${strains.length}` : strains.length}
           />
-          <StatCard label="Avg THCA" value={anyFiltered ? `${avg.toFixed(1)}%` : '—'} />
-          <StatCard label="Highest"  value={anyFiltered ? `${hi.toFixed(1)}%`  : '—'} />
-          <StatCard label="Lowest"   value={anyFiltered ? `${lo.toFixed(1)}%`  : '—'} />
+          <StatCard label="Total Batches"   value={anyFiltered ? totalBatches : '—'} />
+          <StatCard label="Avg Stability"   value={anyFiltered ? `${avgStability}/100` : '—'} />
+          <StatCard label="Needs Attention" value={anyFiltered ? needsAttention : '—'} />
         </Grid>
       )}
 
@@ -406,6 +448,7 @@ function StrainList({ strains, onSelect }) {
               status={s.status}
               stability={s.stability}
               onClick={() => onSelect(s)}
+              onDelete={onDelete}
             />
           ))}
         </div>
@@ -421,6 +464,7 @@ function StrainList({ strains, onSelect }) {
               stability={s.stability}
               last={i === filtered.length - 1}
               onClick={() => onSelect(s)}
+              onDelete={onDelete}
             />
           ))}
         </Panel>
@@ -671,6 +715,10 @@ export default function Strains({ refreshKey }) {
       .catch(() => setStrains([]))
   }, [refreshKey])
 
+  function handleDelete(strainName) {
+    setStrains(prev => prev ? prev.filter(s => s.strain !== strainName) : prev)
+  }
+
   if (selected) {
     return (
       <StrainDetail
@@ -684,5 +732,5 @@ export default function Strains({ refreshKey }) {
     )
   }
 
-  return <StrainList strains={strains} onSelect={setSelected} />
+  return <StrainList strains={strains} onSelect={setSelected} onDelete={handleDelete} />
 }
