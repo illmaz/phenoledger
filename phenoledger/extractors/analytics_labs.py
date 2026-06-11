@@ -56,13 +56,19 @@ def extract(pdf_path: str | Path) -> dict:
         for i, page in enumerate(pdf.pages):
             text = page.extract_text() or ""
             if i == 0 and "Cannabinoids Complete" in text:
-                start = text.index("Cannabinoids Complete")
-                end = text.index("Entered by:") if "Entered by:" in text else len(text)
-                cannabinoids = _parse_block(text[start:end])
+                idx = text.find("Cannabinoids Complete")
+                if idx != -1:
+                    start = idx
+                    end = text.find("Entered by:")
+                    end = end if end != -1 else len(text)
+                    cannabinoids = _parse_block(text[start:end])
             if i == 1 and "Terpenes" in text:
-                start = text.index("Terpenes") + len("Terpenes")
-                end = text.index("Primary Aromas") if "Primary Aromas" in text else len(text)
-                terpenes = _parse_terpene_block(text[start:end])
+                idx = text.find("Terpenes")
+                if idx != -1:
+                    start = idx + len("Terpenes")
+                    end = text.find("Primary Aromas")
+                    end = end if end != -1 else len(text)
+                    terpenes = _parse_terpene_block(text[start:end])
     return {"cannabinoids": cannabinoids, "terpenes": terpenes}
 
 

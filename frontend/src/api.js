@@ -50,6 +50,34 @@ export async function fetchUploadPdf(uploadId) {
   return data.url
 }
 
+export async function fetchMotherPlants() {
+  const res = await fetch(`${BASE}/mother-plants`)
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function createMotherPlant(payload) {
+  const res = await fetch(`${BASE}/mother-plants`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function deleteMotherPlant(id) {
+  const res = await fetch(`${BASE}/mother-plants/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function fetchLineage(strainName) {
+  const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}/lineage`)
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
 export async function deleteStrain(strainName) {
   const res = await fetch(`${BASE}/strain/${encodeURIComponent(strainName)}`, { method: 'DELETE' })
   if (!res.ok) throw new Error(`${res.status}`)

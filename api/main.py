@@ -2,6 +2,9 @@ import os
 import re
 import uuid
 import tempfile
+import logging
+from typing import Optional
+from pydantic import BaseModel
 from fastapi import FastAPI, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from api.dependencies import s3, supabase
@@ -49,11 +52,20 @@ def _infer_sample_type(name: str) -> str:
         return 'extract'
     return 'flower'
 
+class MotherPlantIn(BaseModel):
+    plant_code: str
+    strain_name: Optional[str] = None
+    established_date: Optional[str] = None
+    clone_generation: Optional[int] = None
+    health_status: str = "healthy"
+    hlvd_tested: bool = False
+    hlvd_result: Optional[str] = None
+
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5174"],
+    allow_origins=os.environ.get("ALLOWED_ORIGINS", "http://localhost:5174").split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -491,10 +503,36 @@ def list_mother_plants():
     return rows.data
 
 @app.post("/mother-plants")
-def create_mother_plant(data: dict):
-    data["farm_id"] = FARM_ID
-    row = supabase.table("mother_plants").insert(data).execute()
-    return row.data[0]
+def create_mother_plant(payload: MotherPlantIn):
+    strain_id = None
+    if payload.strain_name:
+        existing = supabase.table("strains") \
+            .select("id") \
+            .eq("farm_id", FARM_ID) \
+            .eq("name", payload.strain_name) \
+            .is_("deleted_at", "null") \
+            .execute()
+        ex: list[dict] = existing.data  # type: ignore[assignment]
+        if ex:
+            strain_id = ex[0]["id"]
+        else:
+            ns = supabase.table("strains").insert({
+                "farm_id": FARM_ID, "name": payload.strain_name,
+            }).execute()
+            ns_data: list[dict] = ns.data  # type: ignore[assignment]
+            strain_id = ns_data[0]["id"] if ns_data else None
+    row = supabase.table("mother_plants").insert({
+        "farm_id": FARM_ID,
+        "plant_code": payload.plant_code,
+        "strain_id": strain_id,
+        "established_date": payload.established_date,
+        "clone_generation": payload.clone_generation,
+        "health_status": payload.health_status,
+        "hlvd_tested": payload.hlvd_tested,
+        "hlvd_result": payload.hlvd_result,
+    }).execute()
+    row_data: list[dict] = row.data  # type: ignore[assignment]
+    return row_data[0] if row_data else {}
 
 @app.delete("/mother-plants/{plant_id}")
 def delete_mother_plant(plant_id: str):
@@ -530,21 +568,30 @@ def delete_seed_lot(lot_id: str):
         .execute()
     return {"deleted": lot_id}
 
-@app.get("/strain/{strain_id}/lineage")
-def strain_lineage(strain_id: str):
+@app.get("/strain/{strain_name}/lineage")
+def strain_lineage(strain_name: str):
+    sr = supabase.table("strains") \
+        .select("id") \
+        .eq("farm_id", FARM_ID) \
+        .eq("name", strain_name) \
+        .is_("deleted_at", "null") \
+        .execute()
+    sr_data: list[dict] = sr.data  # type: ignore[assignment]
+    if not sr_data:
+        return {"seed_lots": [], "mother_plants": []}
+    sid = sr_data[0]["id"]
     seed_lots = supabase.table("seed_lots") \
-        .select("*") \
-        .eq("strain_id", strain_id) \
+        .select("id, lot_code, supplier, date_received, seed_count") \
+        .eq("strain_id", sid) \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .execute()
     mother_plants = supabase.table("mother_plants") \
-        .select("*, propagations(*, coa_reports(id, report_date, sample_name))") \
-        .eq("strain_id", strain_id) \
+        .select("id, plant_code, established_date, clone_generation, health_status, hlvd_tested, hlvd_result") \
+        .eq("strain_id", sid) \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .execute()
-    return {
-        "seed_lots": seed_lots.data,
-        "mother_plants": mother_plants.data,
-    }
+    sl: list[dict] = seed_lots.data  # type: ignore[assignment]
+    mp: list[dict] = mother_plants.data  # type: ignore[assignment]
+    return {"seed_lots": sl, "mother_plants": mp}
