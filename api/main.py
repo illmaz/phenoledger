@@ -477,3 +477,74 @@ def delete_strain(strain_name: str):
                 .eq("id", r["upload_id"]) \
                 .execute()
     return {"deleted": strain_name}
+
+#-------Genetic Lineage ─────────────────────────────────────────────────
+
+@app.get("/mother-plants")
+def list_mother_plants():
+    rows = supabase.table("mother_plants") \
+        .select("*, strains(name)") \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .order("created_at", desc=True) \
+        .execute()
+    return rows.data
+
+@app.post("/mother-plants")
+def create_mother_plant(data: dict):
+    data["farm_id"] = FARM_ID
+    row = supabase.table("mother_plants").insert(data).execute()
+    return row.data[0]
+
+@app.delete("/mother-plants/{plant_id}")
+def delete_mother_plant(plant_id: str):
+    supabase.table("mother_plants") \
+        .update({"deleted_at": datetime.utcnow().isoformat()}) \
+        .eq("id", plant_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    return {"deleted": plant_id}
+
+@app.get("/seed-lots")
+def list_seed_lots():
+    rows = supabase.table("seed_lots") \
+        .select("*, strains(name)") \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .order("created_at", desc=True) \
+        .execute()
+    return rows.data
+
+@app.post("/seed-lots")
+def create_seed_lot(data: dict):
+    data["farm_id"] = FARM_ID
+    row = supabase.table("seed_lots").insert(data).execute()
+    return row.data[0]
+
+@app.delete("/seed-lots/{lot_id}")
+def delete_seed_lot(lot_id: str):
+    supabase.table("seed_lots") \
+        .update({"deleted_at": datetime.utcnow().isoformat()}) \
+        .eq("id", lot_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    return {"deleted": lot_id}
+
+@app.get("/strain/{strain_id}/lineage")
+def strain_lineage(strain_id: str):
+    seed_lots = supabase.table("seed_lots") \
+        .select("*") \
+        .eq("strain_id", strain_id) \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .execute()
+    mother_plants = supabase.table("mother_plants") \
+        .select("*, propagations(*, coa_reports(id, report_date, sample_name))") \
+        .eq("strain_id", strain_id) \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .execute()
+    return {
+        "seed_lots": seed_lots.data,
+        "mother_plants": mother_plants.data,
+    }
