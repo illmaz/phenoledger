@@ -741,6 +741,20 @@ def create_seed_lot(payload: SeedLotIn, current_user = Depends(verify_token)):
     return row_data[0]
 
 
+@app.put("/seed-lots/{lot_id}")
+def update_seed_lot(lot_id: str, payload: dict, current_user = Depends(verify_token)):
+    allowed = {"origin_country", "import_permit_number", "phytosanitary_cert_number",
+               "germination_rate", "quantity_seeds", "arrival_date", "notes"}
+    update = {k: v for k, v in payload.items() if k in allowed}
+    if not update:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    supabase.table("seed_lots") \
+        .update(update) \
+        .eq("id", lot_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    return {"updated": lot_id}
+
 @app.delete("/seed-lots/{lot_id}")
 def delete_seed_lot(lot_id: str, current_user = Depends(verify_token)):
     supabase.table("seed_lots") \
@@ -804,6 +818,19 @@ def create_propagation(payload: PropagationIn, current_user = Depends(verify_tok
     }).execute()
     row_data: list[dict] = row.data  # type: ignore[assignment]
     return row_data[0]
+
+@app.put("/propagations/{prop_id}")
+def update_propagation(prop_id: str, payload: dict, current_user = Depends(verify_token)):
+    allowed = {"propagation_date", "clones_taken", "grow_type", "notes", "report_id"}
+    update = {k: v for k, v in payload.items() if k in allowed}
+    if not update:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    supabase.table("propagations") \
+        .update(update) \
+        .eq("id", prop_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    return {"updated": prop_id}
 
 @app.delete("/propagations/{prop_id}")
 def delete_propagation(prop_id: str, current_user = Depends(verify_token)):
