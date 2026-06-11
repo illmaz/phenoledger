@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, X } from 'lucide-react'
+import { Plus, Trash2, X, Archive } from 'lucide-react'
 import { Panel, Badge, Grid, StatCard } from '../ui'
-import { fetchMotherPlants, createMotherPlant, deleteMotherPlant, fetchStrains } from '../../api'
+import CountrySelect from '../CountrySelect'
+import { fetchMotherPlants, createMotherPlant, deleteMotherPlant, retireMotherPlant, fetchStrains } from '../../api'
 
 const HEALTH_VARIANT = { healthy: 'ok', watch: 'warn', sick: 'danger' }
 const HLVD_VARIANT   = { negative: 'ok', positive: 'danger', pending: 'gray' }
@@ -18,6 +19,8 @@ function RegisterModal({ strains, onClose, onSaved }) {
     plant_code: '', strain_name: '', established_date: '',
     clone_generation: '', health_status: 'healthy',
     hlvd_tested: false, hlvd_result: 'pending',
+    hlvd_test_date: '', last_cloned_date: '',
+    total_clones_taken: '', origin_country: '', notes: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
@@ -31,8 +34,14 @@ function RegisterModal({ strains, onClose, onSaved }) {
     try {
       await createMotherPlant({
         ...form,
-        clone_generation: form.clone_generation ? parseInt(form.clone_generation, 10) : null,
-        strain_name: form.strain_name || null,
+        clone_generation:    form.clone_generation    ? parseInt(form.clone_generation, 10)    : null,
+        total_clones_taken:  form.total_clones_taken  ? parseInt(form.total_clones_taken, 10)  : null,
+        strain_name:         form.strain_name         || null,
+        established_date:    form.established_date    || null,
+        hlvd_test_date:      form.hlvd_test_date      || null,
+        last_cloned_date:    form.last_cloned_date     || null,
+        origin_country:      form.origin_country       || null,
+        notes:               form.notes               || null,
       })
       onSaved()
     } catch (err) {
@@ -58,8 +67,8 @@ function RegisterModal({ strains, onClose, onSaved }) {
       <div
         style={{
           background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: 10,
-          padding: '28px 28px 24px', width: 440, maxWidth: '92vw',
-          boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+          padding: '28px 28px 24px', width: 460, maxWidth: '92vw', maxHeight: '90vh',
+          overflowY: 'auto', boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -124,6 +133,49 @@ function RegisterModal({ strains, onClose, onSaved }) {
             </div>
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>HLVd Test Date</label>
+              <input style={inp} type="date" value={form.hlvd_test_date} onChange={e => set('hlvd_test_date', e.target.value)} />
+            </div>
+            <div>
+              <label style={lbl}>Last Cloned Date</label>
+              <input style={inp} type="date" value={form.last_cloned_date} onChange={e => set('last_cloned_date', e.target.value)} />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Total Clones Taken</label>
+              <input style={inp} type="number" min="0" value={form.total_clones_taken} onChange={e => set('total_clones_taken', e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <label style={lbl}>Origin Country</label>
+              <CountrySelect
+                value={form.origin_country}
+                onChange={v => set('origin_country', v)}
+                inputStyle={inp}
+                placeholder="Seed origin…"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={lbl}>Notes</label>
+            <textarea
+              style={{ ...inp, resize: 'vertical', minHeight: 64, fontFamily: 'inherit' }}
+              value={form.notes}
+              onChange={e => set('notes', e.target.value)}
+              maxLength={500}
+              placeholder="Optional notes…"
+            />
+            {form.notes.length > 400 && (
+              <div style={{ fontSize: 10, color: 'var(--text-3)', textAlign: 'right', marginTop: 2 }}>
+                {form.notes.length}/500
+              </div>
+            )}
+          </div>
+
           {error && <div style={{ fontSize: 12, color: '#f87171' }}>{error}</div>}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
@@ -147,9 +199,10 @@ function RegisterModal({ strains, onClose, onSaved }) {
 
 // ── PlantRow ──────────────────────────────────────────────────────────────────
 
-function PlantRow({ plant, onDelete, last }) {
+function PlantRow({ plant, onDelete, onRetire, last }) {
   const [hovered, setHovered] = useState(false)
   const strainName = plant.strains?.name ?? plant.strain_name ?? '—'
+  const isRetired  = Boolean(plant.retired_at)
 
   return (
     <div
@@ -159,33 +212,62 @@ function PlantRow({ plant, onDelete, last }) {
         display: 'flex', gap: 12, alignItems: 'center',
         padding: '8px 0',
         borderBottom: last ? 'none' : '0.5px solid var(--border)',
+        opacity: isRetired ? 0.65 : 1,
       }}
     >
-      <span style={{ width: 100, fontFamily: 'monospace', fontSize: 11, color: 'var(--text)', flexShrink: 0 }}>
+      <span style={{ width: 90, fontFamily: 'monospace', fontSize: 11, color: 'var(--text)', flexShrink: 0 }}>
         {plant.plant_code ?? '—'}
       </span>
-      <span style={{ flex: 1, fontSize: 12, color: 'var(--text-2)' }}>{strainName}</span>
-      <span style={{ width: 110, fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
+      <span style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {strainName}
+      </span>
+      <span style={{ width: 90, fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
         {fmtDate(plant.established_date)}
       </span>
-      <span style={{ width: 52, textAlign: 'right', fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
+      <span style={{ width: 36, textAlign: 'right', fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
         {plant.clone_generation != null ? `G${plant.clone_generation}` : '—'}
       </span>
-      <div style={{ width: 90, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
-        <Badge variant={HEALTH_VARIANT[plant.health_status] ?? 'gray'}>
-          {plant.health_status ?? '—'}
-        </Badge>
-      </div>
-      <div style={{ width: 90, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
-        {plant.hlvd_tested ? (
-          <Badge variant={HLVD_VARIANT[plant.hlvd_result] ?? 'gray'}>
-            {plant.hlvd_result ?? 'pending'}
+      <span style={{ width: 44, textAlign: 'right', fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
+        {plant.total_clones_taken != null ? plant.total_clones_taken : '—'}
+      </span>
+      <div style={{ width: 80, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+        {isRetired ? (
+          <Badge variant="gray">Retired</Badge>
+        ) : (
+          <Badge variant={HEALTH_VARIANT[plant.health_status] ?? 'gray'}>
+            {plant.health_status ?? '—'}
           </Badge>
+        )}
+      </div>
+      <div style={{ width: 150, display: 'flex', gap: 5, alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0 }}>
+        {plant.hlvd_tested ? (
+          <>
+            <Badge variant={HLVD_VARIANT[plant.hlvd_result] ?? 'gray'}>
+              {plant.hlvd_result ?? 'pending'}
+            </Badge>
+            {plant.hlvd_test_date && (
+              <span style={{ fontSize: 10, color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
+                tested {fmtDate(plant.hlvd_test_date)}
+              </span>
+            )}
+          </>
         ) : (
           <span style={{ fontSize: 11, color: 'var(--text-3)' }}>Not tested</span>
         )}
       </div>
-      <div style={{ width: 28, display: 'flex', justifyContent: 'center', flexShrink: 0 }}>
+      <div style={{ width: 52, display: 'flex', justifyContent: 'flex-end', gap: 2, flexShrink: 0 }}>
+        {hovered && !isRetired && (
+          <button
+            onClick={() => onRetire(plant.id, plant.plant_code)}
+            title="Retire"
+            style={{
+              padding: '2px 4px', border: 'none', background: 'transparent',
+              cursor: 'pointer', color: '#fb923c', display: 'flex', alignItems: 'center',
+            }}
+          >
+            <Archive size={11} />
+          </button>
+        )}
         {hovered && (
           <button
             onClick={() => onDelete(plant.id, plant.plant_code)}
@@ -227,11 +309,23 @@ export default function MotherPlants() {
     } catch { /* silent */ }
   }
 
+  async function handleRetire(id, code) {
+    if (!window.confirm(`Retire mother plant "${code}"? It will remain visible but marked as retired.`)) return
+    try {
+      await retireMotherPlant(id)
+      setPlants(prev => prev
+        ? prev.map(p => p.id === id ? { ...p, retired_at: new Date().toISOString() } : p)
+        : prev
+      )
+    } catch { /* silent */ }
+  }
+
   const hdr = { fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }
 
-  const healthy      = plants ? plants.filter(p => p.health_status === 'healthy').length : 0
-  const watching     = plants ? plants.filter(p => p.health_status === 'watch').length : 0
-  const hlvdPositive = plants ? plants.filter(p => p.hlvd_result === 'positive').length : 0
+  const active       = plants ? plants.filter(p => !p.retired_at) : []
+  const healthy      = active.filter(p => p.health_status === 'healthy').length
+  const watching     = active.filter(p => p.health_status === 'watch').length
+  const hlvdPositive = active.filter(p => p.hlvd_result === 'positive').length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -254,7 +348,7 @@ export default function MotherPlants() {
       {/* Stats */}
       {plants && plants.length > 0 && (
         <Grid cols={4} gap={8}>
-          <StatCard label="Total Plants"  value={plants.length} />
+          <StatCard label="Total Plants"  value={active.length} />
           <StatCard label="Healthy"       value={healthy} />
           <StatCard label="Watch"         value={watching} />
           <StatCard label="HLVd Positive" value={hlvdPositive} />
@@ -273,19 +367,21 @@ export default function MotherPlants() {
       ) : (
         <Panel fullWidth>
           <div style={{ display: 'flex', gap: 12, paddingBottom: 8, borderBottom: '0.5px solid var(--border)', marginBottom: 2 }}>
-            <span style={{ ...hdr, width: 100 }}>Plant Code</span>
+            <span style={{ ...hdr, width: 90 }}>Plant Code</span>
             <span style={{ ...hdr, flex: 1 }}>Strain</span>
-            <span style={{ ...hdr, width: 110 }}>Established</span>
-            <span style={{ ...hdr, width: 52, textAlign: 'right' }}>Gen.</span>
-            <span style={{ ...hdr, width: 90, textAlign: 'right' }}>Health</span>
-            <span style={{ ...hdr, width: 90, textAlign: 'right' }}>HLVd</span>
-            <span style={{ ...hdr, width: 28 }} />
+            <span style={{ ...hdr, width: 90 }}>Established</span>
+            <span style={{ ...hdr, width: 36, textAlign: 'right' }}>Gen.</span>
+            <span style={{ ...hdr, width: 44, textAlign: 'right' }}>Clones</span>
+            <span style={{ ...hdr, width: 80, textAlign: 'right' }}>Health</span>
+            <span style={{ ...hdr, width: 150, textAlign: 'right' }}>HLVd</span>
+            <span style={{ ...hdr, width: 52 }} />
           </div>
           {plants.map((p, i) => (
             <PlantRow
               key={p.id}
               plant={p}
               onDelete={handleDelete}
+              onRetire={handleRetire}
               last={i === plants.length - 1}
             />
           ))}

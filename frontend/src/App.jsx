@@ -8,6 +8,7 @@ import Strains from './components/screens/Strains'
 import COALibrary from './components/screens/COALibrary'
 import Lineage from './components/screens/Lineage'
 import MotherPlants from './components/screens/MotherPlants'
+import SeedLots from './components/screens/SeedLots'
 import Trials from './components/screens/Trials'
 import GACP from './components/screens/GACP'
 import ThaiFDA from './components/screens/ThaiFDA'
@@ -20,6 +21,7 @@ const SCREENS = {
   'coa-library':   { bc: ['COA Library', 'All records'],           Component: COALibrary      },
   'lineage':       { bc: ['Genetic Lineage', 'Cookies & Cream F1'],Component: Lineage         },
   'mother-plants': { bc: ['Mother Plants', 'Registry'],            Component: MotherPlants    },
+  'seed-lots':     { bc: ['Seed Lots', 'Registry'],               Component: SeedLots        },
   'trials':        { bc: ['Local Trial Data', 'Thailand'],         Component: Trials          },
   'gacp':          { bc: ['GACP Reports', 'Compliance'],           Component: GACP            },
   'thai-fda':      { bc: ['Thai FDA', 'Submissions'],              Component: ThaiFDA         },

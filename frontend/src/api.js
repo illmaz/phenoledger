@@ -71,6 +71,31 @@ export async function fetchUploadPdf(uploadId) {
   return data.url
 }
 
+export async function fetchSeedLots() {
+  const res = await fetch(`${BASE}/seed-lots`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function createSeedLot(payload) {
+  const res = await fetch(`${BASE}/seed-lots`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function deleteSeedLot(id) {
+  const res = await fetch(`${BASE}/seed-lots/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
 export async function fetchMotherPlants() {
   const res = await fetch(`${BASE}/mother-plants`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
@@ -82,6 +107,16 @@ export async function createMotherPlant(payload) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...await authHeaders() },
     body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function retireMotherPlant(id) {
+  const res = await fetch(`${BASE}/mother-plants/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify({ retired_at: new Date().toISOString() }),
   })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()

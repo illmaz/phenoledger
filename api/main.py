@@ -57,6 +57,19 @@ def _infer_sample_type(name: str) -> str:
         return 'extract'
     return 'flower'
 
+class SeedLotIn(BaseModel):
+    lot_code: str = Field(..., max_length=50)
+    strain_name: Optional[str] = None
+    strain_id: Optional[str] = None
+    origin_country: Optional[str] = None
+    import_permit_number: Optional[str] = Field(None, max_length=100)
+    phytosanitary_cert_number: Optional[str] = Field(None, max_length=100)
+    germination_rate: Optional[float] = Field(None, ge=0, le=100)
+    quantity_seeds: Optional[int] = Field(None, ge=0)
+    arrival_date: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+
 class MotherPlantIn(BaseModel):
     plant_code: str = Field(..., max_length=50)
     strain_name: Optional[str] = None
@@ -65,6 +78,20 @@ class MotherPlantIn(BaseModel):
     health_status: str = "healthy"
     hlvd_tested: bool = False
     hlvd_result: Optional[str] = None
+    hlvd_test_date: Optional[date] = None
+    last_cloned_date: Optional[date] = None
+    total_clones_taken: Optional[int] = 0
+    origin_country: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class PropagationIn(BaseModel):
+    mother_plant_id: str
+    report_id: Optional[str] = None
+    propagation_date: Optional[date] = None
+    clones_taken: Optional[int] = Field(None, ge=1)
+    grow_type: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
 
 app = FastAPI()
 
@@ -632,9 +659,29 @@ def create_mother_plant(payload: MotherPlantIn, current_user = Depends(verify_to
         "health_status": payload.health_status,
         "hlvd_tested": payload.hlvd_tested,
         "hlvd_result": payload.hlvd_result,
+        "hlvd_test_date": payload.hlvd_test_date.isoformat() if payload.hlvd_test_date else None,
+        "last_cloned_date": payload.last_cloned_date.isoformat() if payload.last_cloned_date else None,
+        "total_clones_taken": payload.total_clones_taken or 0,
+        "origin_country": payload.origin_country,
+        "notes": payload.notes,
     }).execute()
     row_data: list[dict] = row.data  # type: ignore[assignment]
     return row_data[0] if row_data else {}
+
+
+@app.put("/mother-plants/{plant_id}")
+def update_mother_plant(plant_id: str, payload: dict, current_user = Depends(verify_token)):
+    allowed = {"health_status", "hlvd_result", "hlvd_test_date", "last_cloned_date",
+               "total_clones_taken", "notes", "retired_at"}
+    update = {k: v for k, v in payload.items() if k in allowed}
+    if not update:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    supabase.table("mother_plants") \
+        .update(update) \
+        .eq("id", plant_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    return {"updated": plant_id}
 
 
 @app.delete("/mother-plants/{plant_id}")
@@ -659,10 +706,39 @@ def list_seed_lots(auth = Depends(verify_token)):
 
 
 @app.post("/seed-lots")
-def create_seed_lot(data: dict, current_user = Depends(verify_token)):
-    data["farm_id"] = FARM_ID
-    row = supabase.table("seed_lots").insert(data).execute()
-    return row.data[0]
+def create_seed_lot(payload: SeedLotIn, current_user = Depends(verify_token)):
+    # Use strain_id directly if provided, otherwise look up by name
+    strain_id = payload.strain_id or None
+    if not strain_id and payload.strain_name:
+        existing = supabase.table("strains") \
+            .select("id") \
+            .eq("farm_id", FARM_ID) \
+            .eq("name", payload.strain_name) \
+            .is_("deleted_at", "null") \
+            .execute()
+        ex: list[dict] = existing.data  # type: ignore[assignment]
+        if ex:
+            strain_id = ex[0]["id"]
+        else:
+            ns = supabase.table("strains").insert({
+                "farm_id": FARM_ID, "name": payload.strain_name,
+            }).execute()
+            ns_data: list[dict] = ns.data  # type: ignore[assignment]
+            strain_id = ns_data[0]["id"] if ns_data else None
+    row = supabase.table("seed_lots").insert({
+        "farm_id": FARM_ID,
+        "lot_code": payload.lot_code,
+        "strain_id": strain_id,
+        "origin_country": payload.origin_country,
+        "import_permit_number": payload.import_permit_number,
+        "phytosanitary_cert_number": payload.phytosanitary_cert_number,
+        "germination_rate": payload.germination_rate,
+        "quantity_seeds": payload.quantity_seeds,
+        "arrival_date": payload.arrival_date.isoformat() if payload.arrival_date else None,
+        "notes": payload.notes,
+    }).execute()
+    row_data: list[dict] = row.data  # type: ignore[assignment]
+    return row_data[0]
 
 
 @app.delete("/seed-lots/{lot_id}")
@@ -688,13 +764,13 @@ def strain_lineage(strain_name: str, auth = Depends(verify_token)):
         return {"seed_lots": [], "mother_plants": []}
     sid = sr_data[0]["id"]
     seed_lots = auth["client"].table("seed_lots") \
-        .select("id, lot_code, supplier, date_received, seed_count") \
+        .select("*") \
         .eq("strain_id", sid) \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .execute()
     mother_plants = auth["client"].table("mother_plants") \
-        .select("id, plant_code, established_date, clone_generation, health_status, hlvd_tested, hlvd_result") \
+        .select("*, propagations(*, coa_reports(id, sample_name, report_date))") \
         .eq("strain_id", sid) \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
@@ -702,3 +778,38 @@ def strain_lineage(strain_name: str, auth = Depends(verify_token)):
     sl: list[dict] = seed_lots.data  # type: ignore[assignment]
     mp: list[dict] = mother_plants.data  # type: ignore[assignment]
     return {"seed_lots": sl, "mother_plants": mp}
+
+# ── Propagations ──────────────────────────────────────────────────────────────
+
+@app.get("/propagations")
+def list_propagations(auth = Depends(verify_token)):
+    rows = auth["client"].table("propagations") \
+        .select("*, mother_plants(plant_code, strains(name)), coa_reports(sample_name, report_date)") \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .order("created_at", desc=True) \
+        .execute()
+    return rows.data
+
+@app.post("/propagations")
+def create_propagation(payload: PropagationIn, current_user = Depends(verify_token)):
+    row = supabase.table("propagations").insert({
+        "farm_id": FARM_ID,
+        "mother_plant_id": payload.mother_plant_id,
+        "report_id": payload.report_id,
+        "propagation_date": payload.propagation_date.isoformat() if payload.propagation_date else None,
+        "clones_taken": payload.clones_taken,
+        "grow_type": payload.grow_type,
+        "notes": payload.notes,
+    }).execute()
+    row_data: list[dict] = row.data  # type: ignore[assignment]
+    return row_data[0]
+
+@app.delete("/propagations/{prop_id}")
+def delete_propagation(prop_id: str, current_user = Depends(verify_token)):
+    supabase.table("propagations") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", prop_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    return {"deleted": prop_id}

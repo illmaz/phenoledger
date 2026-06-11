@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  LayoutDashboard, Dna, FlaskConical, GitBranch, Leaf,
+  LayoutDashboard, Dna, FlaskConical, GitBranch, Leaf, Sprout,
   TestTube2, FileCheck2, Building2, Globe, Zap,
 } from 'lucide-react'
 
@@ -27,6 +27,7 @@ const NAV = [
     items: [
       { id: 'lineage',       label: 'Lineage Tree',  Icon: GitBranch, phase: 'p2' },
       { id: 'mother-plants', label: 'Mother Plants', Icon: Leaf,      phase: 'p2' },
+      { id: 'seed-lots',     label: 'Seed Lots',     Icon: Sprout,    phase: 'p2' },
     ],
   },
   {
