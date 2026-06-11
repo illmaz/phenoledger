@@ -17,8 +17,8 @@ class LabFamily(Enum):
 
 _SIGNATURES: list[tuple[str, LabFamily]] = [
     # Specific lab names first — must take priority over LIMS platform signatures
-    ("SC Laboratories, Inc.",    LabFamily.BOTANACOR),
-    ("SC Laboratories",          LabFamily.SCLABS),
+    ("SC Laboratories, Inc.",    LabFamily.BOTANACOR),  # Denver/Colorado entity (formerly Botanacor)
+    ("SC Laboratories",          LabFamily.SCLABS),     # California entity (sclabs.com)
     ("sclabs.com",               LabFamily.SCLABS),
     ("FESA Labs",                LabFamily.FESA_LABS),
     ("New Bloom Labs",           LabFamily.NEW_BLOOM),
