@@ -1078,3 +1078,38 @@ def trials_analytics(auth = Depends(verify_token)):
             "harvest_date": trial.get("harvest_date"),
         })
     return result
+
+@app.get("/trials/analytics/summary")
+def trials_analytics_summary(auth = Depends(verify_token)):
+    rows = auth["client"].table("trials") \
+        .select("grow_type, dry_weight_g, plant_count, strains(name), trial_coa_links(coa_reports(cannabinoid_results(compound_name, value_pct)))") \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .execute()
+    data: list[dict] = rows.data or []
+    by_grow_type: dict = {}
+    for trial in data:
+        gt = trial.get("grow_type") or "unknown"
+        if gt not in by_grow_type:
+            by_grow_type[gt] = {"thca_vals": [], "yield_per_plant": []}
+        links = trial.get("trial_coa_links") or []
+        for link in links:
+            report = link.get("coa_reports") or {}
+            for c in (report.get("cannabinoid_results") or []):
+                if c["compound_name"] == "THCA" and c["value_pct"]:
+                    by_grow_type[gt]["thca_vals"].append(float(c["value_pct"]))
+        if trial.get("dry_weight_g") and trial.get("plant_count"):
+            by_grow_type[gt]["yield_per_plant"].append(
+                float(trial["dry_weight_g"]) / int(trial["plant_count"])
+            )
+    summary = []
+    for gt, vals in by_grow_type.items():
+        thca_list = vals["thca_vals"]
+        yield_list = vals["yield_per_plant"]
+        summary.append({
+            "grow_type": gt,
+            "trial_count": len(data),
+            "avg_thca": round(sum(thca_list) / len(thca_list), 2) if thca_list else None,
+            "avg_yield_per_plant_g": round(sum(yield_list) / len(yield_list), 1) if yield_list else None,
+        })
+    return summary
