@@ -85,6 +85,13 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
 
     contents = await file.read()
 
+    MAX_SIZE = 50 * 1024 * 1024  # 50MB
+    if len(contents) > MAX_SIZE:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 50MB")
+
+    if not contents.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="File is not a valid PDF")
+
     content_hash = hashlib.sha256(contents).hexdigest()
     existing = supabase.table("coa_uploads") \
         .select("id") \
