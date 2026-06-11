@@ -39,7 +39,10 @@ def _display_name(filename: str) -> str:
     name = re.sub(r'^\d+_', '', filename)
     name = _LAB_SUFFIX.sub('', name)
     name = name.rsplit('.', 1)[0]
-    return name.replace('_', ' ').title()
+    result = name.replace('_', ' ').title()
+    if re.match(r'^[\d\s\-]+$', result) or len(result) < 3:
+        logging.warning("_display_name produced suspicious result %r from %r", result, filename)
+    return result
 
 _CONCENTRATE_KW = ['rosin', 'wax', 'live resin', 'hash', 'badder', 'batter', 'sauce',
                    'diamonds', 'crumble', 'shatter', 'kief', 'sift', 'bubble', 'ice water']
@@ -76,6 +79,83 @@ app.add_middleware(
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/overview")
+def overview(auth = Depends(verify_token)):
+    client = auth["client"]
+
+    strains_rows = client.table("strain_consistency") \
+        .select("strain_name, avg_pct, stability_score, status") \
+        .eq("farm_id", FARM_ID) \
+        .eq("compound_name", "THCA") \
+        .execute()
+    strains_data: list[dict] = strains_rows.data  # type: ignore[assignment]
+
+    strain_count = len(strains_data)
+    avg_stability = round(
+        sum(float(r["stability_score"] or 0) for r in strains_data) / strain_count
+        if strain_count > 0 else 0
+    )
+
+    count_rows = client.table("coa_uploads") \
+        .select("id", count="exact") \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .execute()
+    coa_count = count_rows.count or 0
+
+    uploads_rows = client.table("coa_uploads") \
+        .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date)") \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .order("created_at", desc=True) \
+        .range(0, 4) \
+        .execute()
+    uploads_data: list[dict] = uploads_rows.data  # type: ignore[assignment]
+    recent_uploads = []
+    for r in uploads_data:
+        reports = r.get("coa_reports") or []
+        lab_raw = reports[0]["lab_name"] if reports else None
+        recent_uploads.append({
+            "id": r["id"],
+            "name": _display_name(r["original_filename"]),
+            "status": r["extraction_status"],
+            "lab": LAB_DISPLAY.get(lab_raw, lab_raw) if lab_raw else None,
+            "created_at": reports[0].get("report_date") or r["created_at"] if reports else r["created_at"],
+        })
+
+    consistency = [
+        {"strain": r["strain_name"], "thca": round(float(r["avg_pct"] or 0), 2)}
+        for r in strains_data
+    ]
+
+    alerts_rows = client.table("strain_consistency") \
+        .select("strain_name, compound_name, status, cv_pct, stability_score") \
+        .eq("farm_id", FARM_ID) \
+        .in_("status", ["watch", "drift"]) \
+        .execute()
+    alerts_data: list[dict] = alerts_rows.data  # type: ignore[assignment]
+    alerts = [
+        {
+            "strain": r["strain_name"],
+            "compound": r["compound_name"],
+            "status": r["status"],
+            "cv_pct": round(float(r["cv_pct"] or 0), 1),
+            "stability": round(float(r["stability_score"] or 0)),
+        }
+        for r in alerts_data
+    ]
+
+    return {
+        "strain_count": strain_count,
+        "coa_count": coa_count,
+        "avg_stability": avg_stability,
+        "flagged_count": len({a["strain"] for a in alerts}),
+        "recent_uploads": recent_uploads,
+        "consistency": consistency,
+        "alerts": alerts,
+    }
 
 
 @app.post("/upload")

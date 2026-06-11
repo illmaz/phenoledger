@@ -9,6 +9,12 @@ async function authHeaders() {
     : {}
 }
 
+export async function fetchOverview() {
+  const res = await fetch(`${BASE}/overview`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
 export async function fetchUploads() {
   const res = await fetch(`${BASE}/uploads`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
