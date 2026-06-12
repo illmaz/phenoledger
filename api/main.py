@@ -7,7 +7,7 @@ import hashlib
 from typing import Optional, Literal
 from pydantic import model_validator
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from api.dependencies import s3, supabase, verify_token
 from phenoledger.lab_detector import detect, LabFamily
@@ -585,7 +585,7 @@ def consistency_alerts(auth = Depends(verify_token)):
 
 
 @app.get("/strains")
-def list_strains(auth = Depends(verify_token)):
+def list_strains(limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("strain_consistency") \
         .select("strain_id, strain_name, batch_count, avg_pct, stability_score, status, farm_id") \
         .eq("farm_id", auth["farm_id"]) \
@@ -1632,7 +1632,7 @@ def trial_performance_report(strain_name: str, auth = Depends(verify_token)):
 # ── Phase 2 Extended: Breeding Records ────────────────────────────────────────
 
 @app.get("/breeding-records")
-def list_breeding_records(auth = Depends(verify_token)):
+def list_breeding_records(limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("breeding_records")         .select("*, result_strain:strains!result_strain_id(name), parent_a:strains!parent_strain_a_id(name), parent_b:strains!parent_strain_b_id(name)")         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .order("created_at", desc=True)         .execute()
     return rows.data or []
 
@@ -1741,7 +1741,7 @@ def delete_plant_health_screening(screening_id: str, auth = Depends(verify_token
 # ── Phase 4 Extended: DUS Testing ─────────────────────────────────────────────
 
 @app.get("/dus-tests")
-def list_dus_tests(strain_id: Optional[str] = None, auth = Depends(verify_token)):
+def list_dus_tests(strain_id: Optional[str] = None, limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
     q = auth["client"].table("dus_tests")         .select("*, strains(name)")         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .order("test_date", desc=True)
     if strain_id:
         q = q.eq("strain_id", strain_id)
@@ -1788,7 +1788,7 @@ def delete_dus_test(test_id: str, auth = Depends(verify_token)):
 # ── Phase 4 Extended: Tissue Culture Records ──────────────────────────────────
 
 @app.get("/tissue-culture-records")
-def list_tissue_culture_records(strain_id: Optional[str] = None, auth = Depends(verify_token)):
+def list_tissue_culture_records(strain_id: Optional[str] = None, limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
     q = auth["client"].table("tissue_culture_records")         .select("*, strains(name)")         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .order("banking_date", desc=True)
     if strain_id:
         q = q.eq("strain_id", strain_id)
