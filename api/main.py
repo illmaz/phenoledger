@@ -587,24 +587,49 @@ def consistency_alerts(auth = Depends(verify_token)):
 
 
 @app.get("/strains")
+
+def compute_chemotype(compounds: dict) -> str:
+    thc = float(compounds.get("THCA", 0) or 0) + float(compounds.get("D9-THC", 0) or 0)
+    cbd = float(compounds.get("CBDA", 0) or 0) + float(compounds.get("CBD", 0) or 0)
+    cbg = float(compounds.get("CBGA", 0) or 0) + float(compounds.get("CBG", 0) or 0)
+    if cbg > thc and cbg > cbd and cbg > 1.0:
+        return "Type IV"
+    if thc > 1.0 and thc > cbd * 2:
+        return "Type I"
+    if thc >= 0.5 and cbd >= 0.5:
+        return "Type II"
+    if cbd > thc * 2 and cbd > 1.0:
+        return "Type III"
+    return "Type V"
+
 def list_strains(limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("strain_consistency") \
-        .select("strain_id, strain_name, batch_count, avg_pct, stability_score, status, farm_id") \
+        .select("strain_id, strain_name, batch_count, avg_pct, stability_score, status, compound_name") \
         .eq("farm_id", auth["farm_id"]) \
-        .eq("compound_name", "THCA") \
+        .in_("compound_name", ["THCA", "D9-THC", "CBDA", "CBD", "CBGA", "CBG"]) \
         .execute()
     data: list[dict] = rows.data  # type: ignore[assignment]
-    result = []
+    # group by strain
+    from collections import defaultdict
+    strains: dict = {}
+    compounds_by_strain: dict = defaultdict(dict)
     for r in data:
+        sid = r["strain_id"]
+        compounds_by_strain[sid][r["compound_name"]] = float(r["avg_pct"] or 0)
+        if r["compound_name"] == "THCA":
+            strains[sid] = r
+    result = []
+    for sid, r in strains.items():
         stability = round(float(r["stability_score"] or 0))
         result.append({
-            "strain_id": r["strain_id"],
+            "strain_id": sid,
             "strain": r["strain_name"],
             "thca": round(float(r["avg_pct"] or 0), 2),
             "upload_count": r["batch_count"],
             "status": r["status"],
             "stability": stability,
             "sample_type": _infer_sample_type(r["strain_name"]),
+            "chemotype": compute_chemotype(compounds_by_strain[sid]),
         })
     return result
 
