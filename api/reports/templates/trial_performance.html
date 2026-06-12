@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 20mm 15mm; }
+  body { font-family: Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+  .header { border-bottom: 3px solid #2d7a4f; padding-bottom: 8px; margin-bottom: 16px; }
+  .header h1 { font-size: 18pt; color: #2d7a4f; margin: 0 0 4px 0; }
+  .header .subtitle { font-size: 10pt; color: #555; }
+  .meta { display: flex; gap: 40px; margin-bottom: 20px; font-size: 9pt; color: #555; }
+  h2 { font-size: 12pt; color: #2d7a4f; border-bottom: 1px solid #d0e8d8; padding-bottom: 4px; margin: 20px 0 10px 0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 9pt; }
+  th { background: #2d7a4f; color: white; padding: 6px 8px; text-align: left; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e8f0eb; }
+  tr:nth-child(even) td { background: #f5faf7; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: bold; }
+  .badge-green { background: #d0e8d8; color: #1a5c34; }
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .summary-card { background: #f5faf7; border: 1px solid #d0e8d8; border-radius: 4px; padding: 10px 14px; }
+  .summary-card .label { font-size: 8pt; color: #555; margin-bottom: 4px; }
+  .summary-card .value { font-size: 14pt; font-weight: bold; color: #2d7a4f; }
+  .footer { position: fixed; bottom: 0; left: 0; right: 0; font-size: 8pt; color: #aaa; text-align: center; padding: 4px; border-top: 1px solid #eee; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Trial Performance Report</h1>
+  <div class="subtitle">PhenoLedger — Cannabis Certificate of Analysis Intelligence Platform</div>
+</div>
+
+<div class="meta">
+  <span><strong>Farm:</strong> {{ farm_name }}</span>
+  <span><strong>Strain:</strong> {{ strain_name }}</span>
+  <span><strong>Generated:</strong> {{ generated_date }}</span>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="label">Total trials</div>
+    <div class="value">{{ trials | length }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Grow types</div>
+    <div class="value">{{ analytics | length }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Avg THCA</div>
+    <div class="value">{% set thca_vals = analytics | selectattr("avg_thca") | map(attribute="avg_thca") | list %}{{ (thca_vals | sum / thca_vals | length) | round(2) if thca_vals else "—" }}%</div>
+  </div>
+</div>
+
+<h2>1. Analytics by Grow Type</h2>
+{% if analytics %}
+<table>
+  <tr><th>Grow Type</th><th>Trials</th><th>Avg THCA %</th><th>Avg Yield / Plant (g)</th><th>Avg Yield Efficiency %</th></tr>
+  {% for a in analytics %}
+  <tr>
+    <td>{{ a.grow_type | capitalize }}</td>
+    <td>{{ a.trial_count }}</td>
+    <td>{{ a.avg_thca or "—" }}</td>
+    <td>{{ a.avg_yield_per_plant_g or "—" }}</td>
+    <td>{{ a.avg_yield_efficiency_pct or "—" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#888">No analytics data available for this strain.</p>
+{% endif %}
+
+<h2>2. Trial Records</h2>
+{% if trials %}
+<table>
+  <tr><th>Location</th><th>Grow Type</th><th>Start</th><th>Harvest</th><th>Plants</th><th>Dry Weight (g)</th><th>Medium</th><th>Light Cycle</th></tr>
+  {% for t in trials %}
+  <tr>
+    <td>{{ t.location_name or "—" }}</td>
+    <td>{{ t.grow_type or "—" }}</td>
+    <td>{{ t.start_date or "—" }}</td>
+    <td>{{ t.harvest_date or "—" }}</td>
+    <td>{{ t.plant_count or "—" }}</td>
+    <td>{{ t.dry_weight_g or "—" }}</td>
+    <td>{{ t.grow_medium or "—" }}</td>
+    <td>{{ t.light_cycle or "—" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#888">No trial records found for this strain.</p>
+{% endif %}
+
+<div class="footer">
+  PhenoLedger Trial Performance Report · Generated {{ generated_date }} · Confidential
+</div>
+
+</body>
+</html>

@@ -63,3 +63,20 @@ def render_import_summary_report(
         generated_date=date.today().strftime("%d %b %Y"),
     )
     return HTML(string=html_content).write_pdf()
+
+
+def render_trial_performance_report(
+    farm_name: str,
+    strain_name: str,
+    trials: list[dict],
+    analytics: list[dict],
+) -> bytes:
+    template = _jinja_env.get_template("trial_performance.html")
+    html_content = template.render(
+        farm_name=farm_name,
+        strain_name=strain_name,
+        trials=trials,
+        analytics=analytics,
+        generated_date=date.today().strftime("%d %b %Y"),
+    )
+    return HTML(string=html_content).write_pdf()

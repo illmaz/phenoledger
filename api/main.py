@@ -1567,3 +1567,72 @@ def import_summary_report(auth = Depends(verify_token)):
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=ImportSummary.pdf"},
     )
+
+
+@app.get("/reports/trial-performance/{strain_name}")
+def trial_performance_report(strain_name: str, auth = Depends(verify_token)):
+    from fastapi.responses import Response
+    from api.reports.generator import render_trial_performance_report
+
+    strain_row = auth["client"].table("strains")         .select("id")         .eq("farm_id", FARM_ID)         .eq("name", strain_name)         .is_("deleted_at", "null")         .execute()
+    if not strain_row.data:
+        raise HTTPException(status_code=404, detail="strain not found")
+    strain_id = strain_row.data[0]["id"]
+
+    farm_row = auth["client"].table("farms").select("name").eq("id", FARM_ID).execute()
+    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+
+    trials_raw = auth["client"].table("trials")         .select("location_name, grow_type, start_date, harvest_date, plant_count, dry_weight_g, wet_weight_g, grow_medium, light_cycle, trial_coa_links(coa_reports(cannabinoid_results(compound_name, value_pct)))")         .eq("farm_id", FARM_ID)         .eq("strain_id", strain_id)         .is_("deleted_at", "null")         .order("start_date", desc=False)         .execute()
+    trials = trials_raw.data or []
+
+    by_grow_type: dict = {}
+    for trial in trials:
+        gt = trial.get("grow_type") or "unknown"
+        if gt not in by_grow_type:
+            by_grow_type[gt] = {"thca_vals": [], "yield_per_plant": [], "efficiency_vals": [], "count": 0}
+        by_grow_type[gt]["count"] += 1
+        links = trial.get("trial_coa_links") or []
+        trial_thca = None
+        for link in links:
+            if trial_thca is not None:
+                break
+            report = link.get("coa_reports") or {}
+            for c in (report.get("cannabinoid_results") or []):
+                if c["compound_name"] == "THCA" and c["value_pct"]:
+                    trial_thca = float(c["value_pct"])
+                    break
+        if trial_thca is not None:
+            by_grow_type[gt]["thca_vals"].append(trial_thca)
+        if trial.get("dry_weight_g") and trial.get("plant_count"):
+            by_grow_type[gt]["yield_per_plant"].append(
+                float(trial["dry_weight_g"]) / int(trial["plant_count"])
+            )
+        if trial.get("dry_weight_g") and trial.get("wet_weight_g") and float(trial.get("wet_weight_g", 0)) > 0:
+            by_grow_type[gt]["efficiency_vals"].append(
+                float(trial["dry_weight_g"]) / float(trial["wet_weight_g"]) * 100
+            )
+
+    analytics = []
+    for gt, vals in by_grow_type.items():
+        thca_list = vals["thca_vals"]
+        yield_list = vals["yield_per_plant"]
+        eff_list = vals["efficiency_vals"]
+        analytics.append({
+            "grow_type": gt,
+            "trial_count": vals["count"],
+            "avg_thca": round(sum(thca_list) / len(thca_list), 2) if thca_list else None,
+            "avg_yield_per_plant_g": round(sum(yield_list) / len(yield_list), 1) if yield_list else None,
+            "avg_yield_efficiency_pct": round(sum(eff_list) / len(eff_list), 1) if eff_list else None,
+        })
+
+    pdf = render_trial_performance_report(
+        farm_name=farm_name,
+        strain_name=strain_name,
+        trials=trials,
+        analytics=analytics,
+    )
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=TrialPerformance_{strain_name.replace(' ', '_')}.pdf"},
+    )
