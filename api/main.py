@@ -211,6 +211,24 @@ class BreedingRecordUpdate(BaseModel):
     success_rate: Optional[float] = Field(None, ge=0, le=100)
     breeding_notes: Optional[str] = Field(None, max_length=1000)
 
+class PlantHealthScreeningIn(BaseModel):
+    mother_plant_id: Optional[str] = None
+    report_id: Optional[str] = None
+    pathogen: Literal["Fusarium","Botrytis","HLVd","Powdery Mildew","Spider Mites","Russet Mites","Root Aphids","Other"]
+    test_date: date
+    result: Literal["negative","positive","pending"]
+    testing_lab: Optional[str] = Field(None, max_length=200)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+    def model_post_init(self, __context) -> None:
+        if not self.mother_plant_id and not self.report_id:
+            raise ValueError("either mother_plant_id or report_id must be provided")
+
+class PlantHealthScreeningUpdate(BaseModel):
+    result: Optional[Literal["negative","positive","pending"]] = None
+    testing_lab: Optional[str] = Field(None, max_length=200)
+    notes: Optional[str] = Field(None, max_length=1000)
+
 
 app = FastAPI()
 
@@ -1705,3 +1723,63 @@ def delete_breeding_record(record_id: str, auth = Depends(verify_token)):
     from datetime import datetime
     supabase.table("breeding_records")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", record_id)         .execute()
     return {"deleted": record_id}
+
+
+# ── Phase 4 Extended: Plant Health Screenings ─────────────────────────────────
+
+@app.get("/plant-health-screenings")
+def list_plant_health_screenings(
+    mother_plant_id: Optional[str] = None,
+    report_id: Optional[str] = None,
+    auth = Depends(verify_token),
+):
+    q = auth["client"].table("plant_health_screenings")         .select("*, mother_plants(plant_code), coa_reports(sample_name)")         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .order("test_date", desc=True)
+    if mother_plant_id:
+        q = q.eq("mother_plant_id", mother_plant_id)
+    if report_id:
+        q = q.eq("report_id", report_id)
+    return q.execute().data or []
+
+@app.post("/plant-health-screenings")
+def create_plant_health_screening(payload: PlantHealthScreeningIn, auth = Depends(verify_token)):
+    if payload.mother_plant_id:
+        check = auth["client"].table("mother_plants")             .select("id")             .eq("id", payload.mother_plant_id)             .eq("farm_id", FARM_ID)             .execute()
+        if not check.data:
+            raise HTTPException(status_code=404, detail="mother plant not found")
+    if payload.report_id:
+        check = auth["client"].table("coa_reports")             .select("id")             .eq("id", payload.report_id)             .eq("farm_id", FARM_ID)             .execute()
+        if not check.data:
+            raise HTTPException(status_code=404, detail="COA report not found")
+    row = supabase.table("plant_health_screenings").insert({
+        "farm_id": FARM_ID,
+        "mother_plant_id": payload.mother_plant_id,
+        "report_id": payload.report_id,
+        "pathogen": payload.pathogen,
+        "test_date": str(payload.test_date),
+        "result": payload.result,
+        "testing_lab": payload.testing_lab,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.patch("/plant-health-screenings/{screening_id}")
+def update_plant_health_screening(
+    screening_id: str,
+    payload: PlantHealthScreeningUpdate,
+    auth = Depends(verify_token),
+):
+    check = auth["client"].table("plant_health_screenings")         .select("id")         .eq("id", screening_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="screening not found")
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    row = supabase.table("plant_health_screenings").update(updates)         .eq("id", screening_id)         .execute()
+    return row.data[0]
+
+@app.delete("/plant-health-screenings/{screening_id}")
+def delete_plant_health_screening(screening_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("plant_health_screenings")         .select("id")         .eq("id", screening_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="screening not found")
+    from datetime import datetime
+    supabase.table("plant_health_screenings")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", screening_id)         .execute()
+    return {"deleted": screening_id}
