@@ -5,21 +5,26 @@ import {
 } from 'lucide-react'
 
 const NAV = [
-  { id: 'overview',          label: 'Overview',         Icon: LayoutDashboard },
-  { id: 'strains',           label: 'Strains',          Icon: Dna             },
-  { id: 'coa-library',       label: 'COA Library',      Icon: FlaskConical    },
-  { id: 'lineage',           label: 'Lineage Tree',     Icon: GitBranch       },
-  { id: 'mother-plants',     label: 'Mother Plants',    Icon: Leaf            },
-  { id: 'seed-lots',         label: 'Seed Lots',        Icon: Sprout          },
-  { id: 'breeding-records',  label: 'Breeding Records', Icon: GitMerge        },
-  { id: 'trials',            label: 'Trial Data',       Icon: TestTube2       },
-  { id: 'gacp',              label: 'GACP Reports',     Icon: FileCheck2      },
-  { id: 'health-screenings', label: 'Health Screenings',Icon: Shield          },
-  { id: 'dus-tests',         label: 'DUS Testing',      Icon: FlaskConical    },
-  { id: 'tissue-culture',    label: 'Tissue Culture',   Icon: Microscope      },
-  { id: 'thai-fda',          label: 'Thai FDA',         Icon: Building2       },
-  { id: 'cannaverify',       label: 'Public Search',    Icon: Globe           },
-  { id: 'api',               label: 'API & Webhooks',   Icon: Zap             },
+  { id: 'overview',          label: 'Overview',          Icon: LayoutDashboard },
+  { id: 'strains',           label: 'Strains',           Icon: Dna             },
+  { id: 'coa-library',       label: 'COA Library',       Icon: FlaskConical    },
+  { divider: true },
+  { id: 'lineage',           label: 'Lineage Tree',      Icon: GitBranch       },
+  { id: 'mother-plants',     label: 'Mother Plants',     Icon: Leaf            },
+  { id: 'seed-lots',         label: 'Seed Lots',         Icon: Sprout          },
+  { id: 'breeding-records',  label: 'Breeding Records',  Icon: GitMerge        },
+  { divider: true },
+  { id: 'trials',            label: 'Trial Data',        Icon: TestTube2       },
+  { divider: true },
+  { id: 'gacp',              label: 'GACP Reports',      Icon: FileCheck2      },
+  { id: 'health-screenings', label: 'Health Screenings', Icon: Shield          },
+  { id: 'dus-tests',         label: 'DUS Testing',       Icon: FlaskConical    },
+  { id: 'tissue-culture',    label: 'Tissue Culture',    Icon: Microscope      },
+  { id: 'thai-fda',          label: 'Thai FDA',          Icon: Building2       },
+  { divider: true },
+  { id: 'cannaverify',       label: 'Public Search',     Icon: Globe           },
+  { divider: true },
+  { id: 'api',               label: 'API & Webhooks',    Icon: Zap             },
 ]
 
 export default function Sidebar({ active, onNavigate }) {
@@ -37,7 +42,11 @@ export default function Sidebar({ active, onNavigate }) {
       </div>
 
       <nav style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-        {NAV.map(({ id, label, Icon }) => {
+        {NAV.map((item, i) => {
+          if (item.divider) {
+            return <div key={i} style={{ height: '0.5px', background: 'var(--border)', margin: '6px 16px' }} />
+          }
+          const { id, label, Icon } = item
           const isActive = active === id
           return (
             <button
