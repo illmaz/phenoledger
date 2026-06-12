@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 20mm 15mm; }
+  body { font-family: Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+  .header { border-bottom: 3px solid #2d7a4f; padding-bottom: 8px; margin-bottom: 16px; }
+  .header h1 { font-size: 18pt; color: #2d7a4f; margin: 0 0 4px 0; }
+  .header .subtitle { font-size: 10pt; color: #555; }
+  .meta { display: flex; gap: 40px; margin-bottom: 20px; font-size: 9pt; color: #555; }
+  h2 { font-size: 12pt; color: #2d7a4f; border-bottom: 1px solid #d0e8d8; padding-bottom: 4px; margin: 20px 0 10px 0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 9pt; }
+  th { background: #2d7a4f; color: white; padding: 6px 8px; text-align: left; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e8f0eb; }
+  tr:nth-child(even) td { background: #f5faf7; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: bold; }
+  .badge-green { background: #d0e8d8; color: #1a5c34; }
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+  .summary-card { background: #f5faf7; border: 1px solid #d0e8d8; border-radius: 4px; padding: 10px 14px; }
+  .summary-card .label { font-size: 8pt; color: #555; margin-bottom: 4px; }
+  .summary-card .value { font-size: 14pt; font-weight: bold; color: #2d7a4f; }
+  .footer { position: fixed; bottom: 0; left: 0; right: 0; font-size: 8pt; color: #aaa; text-align: center; padding: 4px; border-top: 1px solid #eee; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Import Documentation Summary</h1>
+  <div class="subtitle">PhenoLedger — Cannabis Certificate of Analysis Intelligence Platform</div>
+</div>
+
+<div class="meta">
+  <span><strong>Farm:</strong> {{ farm_name }}</span>
+  <span><strong>Generated:</strong> {{ generated_date }}</span>
+  <span><strong>Total seed lots:</strong> {{ seed_lots | length }}</span>
+</div>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="label">Total seed lots</div>
+    <div class="value">{{ seed_lots | length }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Origin countries</div>
+    <div class="value">{{ origin_countries | length }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Strains documented</div>
+    <div class="value">{{ strains_count }}</div>
+  </div>
+</div>
+
+<h2>1. Seed Lot Records</h2>
+{% if seed_lots %}
+<table>
+  <tr><th>Lot Code</th><th>Strain</th><th>Origin</th><th>Import Permit</th><th>Phyto Certificate</th><th>Arrival Date</th><th>Germination %</th></tr>
+  {% for lot in seed_lots %}
+  <tr>
+    <td>{{ lot.lot_code }}</td>
+    <td>{{ lot.strains.name if lot.strains else "—" }}</td>
+    <td>{{ lot.origin_country or "—" }}</td>
+    <td>{{ lot.import_permit_number or "—" }}</td>
+    <td>{{ lot.phytosanitary_cert_number or "—" }}</td>
+    <td>{{ lot.arrival_date or "—" }}</td>
+    <td>{{ lot.germination_rate or "—" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#888">No seed lot records found for this farm.</p>
+{% endif %}
+
+<h2>2. Origin Countries</h2>
+{% if origin_countries %}
+<table>
+  <tr><th>Country</th><th>Seed Lots</th></tr>
+  {% for country, count in origin_countries.items() %}
+  <tr>
+    <td>{{ country }}</td>
+    <td>{{ count }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#888">No origin country data available.</p>
+{% endif %}
+
+<div class="footer">
+  PhenoLedger Import Documentation Summary · Generated {{ generated_date }} · Confidential
+</div>
+
+</body>
+</html>

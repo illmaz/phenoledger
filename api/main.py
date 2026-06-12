@@ -1535,3 +1535,35 @@ def strain_performance_report(strain_name: str, auth = Depends(verify_token)):
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=StrainPerformance_{strain_name.replace(' ', '_')}.pdf"},
     )
+
+
+@app.get("/reports/import-summary")
+def import_summary_report(auth = Depends(verify_token)):
+    from fastapi.responses import Response
+    from api.reports.generator import render_import_summary_report
+
+    farm_row = auth["client"].table("farms").select("name").eq("id", FARM_ID).execute()
+    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+
+    seed_lots_raw = auth["client"].table("seed_lots")         .select("*, strains(name)")         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .order("arrival_date", desc=False)         .execute()
+    seed_lots = seed_lots_raw.data or []
+
+    origin_countries: dict[str, int] = {}
+    strain_ids: set = set()
+    for lot in seed_lots:
+        country = lot.get("origin_country") or "Unknown"
+        origin_countries[country] = origin_countries.get(country, 0) + 1
+        if lot.get("strain_id"):
+            strain_ids.add(lot["strain_id"])
+
+    pdf = render_import_summary_report(
+        farm_name=farm_name,
+        seed_lots=seed_lots,
+        origin_countries=origin_countries,
+        strains_count=len(strain_ids),
+    )
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=ImportSummary.pdf"},
+    )

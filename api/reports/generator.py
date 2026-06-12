@@ -46,3 +46,20 @@ def render_strain_performance_report(
         generated_date=date.today().strftime("%d %b %Y"),
     )
     return HTML(string=html_content).write_pdf()
+
+
+def render_import_summary_report(
+    farm_name: str,
+    seed_lots: list[dict],
+    origin_countries: dict,
+    strains_count: int,
+) -> bytes:
+    template = _jinja_env.get_template("import_summary.html")
+    html_content = template.render(
+        farm_name=farm_name,
+        seed_lots=seed_lots,
+        origin_countries=origin_countries,
+        strains_count=strains_count,
+        generated_date=date.today().strftime("%d %b %Y"),
+    )
+    return HTML(string=html_content).write_pdf()
