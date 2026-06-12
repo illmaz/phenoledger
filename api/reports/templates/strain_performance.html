@@ -50,9 +50,10 @@
       <div class="stability-bar"><div class="stability-fill" style="width:{{ c.stability_score }}%"></div></div>
     </td>
     <td>
-      {% if c.status == "stable" %}<span class="badge badge-green">Stable</span>
+      {% if c.status in ["stable", "excellent"] %}<span class="badge badge-green">Stable</span>
       {% elif c.status == "watch" %}<span class="badge badge-yellow">Watch</span>
-      {% else %}<span class="badge badge-red">Drift</span>{% endif %}
+      {% elif c.status == "drift" %}<span class="badge badge-red">Drift</span>
+      {% else %}<span class="badge badge-green">{{ c.status | title }}</span>{% endif %}
     </td>
   </tr>
   {% endfor %}
