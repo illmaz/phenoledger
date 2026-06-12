@@ -4,6 +4,7 @@ import uuid
 import tempfile
 import logging
 import hashlib
+import urllib.parse
 from typing import Optional, Literal
 from pydantic import model_validator
 from pydantic import BaseModel, Field
@@ -607,11 +608,11 @@ def list_strains(limit: int = Query(50, le=200), offset: int = 0, auth = Depends
     return result
 
 
-def _get_strain_report_ids(strain_name: str, client) -> list[str]:
+def _get_strain_report_ids(strain_name: str, client, farm_id: str) -> list[str]:
     """Look up report IDs for a strain by name using strain_id join."""
     strain_row = client.table("strains") \
         .select("id") \
-        .eq("farm_id", auth["farm_id"]) \
+        .eq("farm_id", farm_id) \
         .eq("name", strain_name) \
         .is_("deleted_at", "null") \
         .execute()
@@ -621,6 +622,7 @@ def _get_strain_report_ids(strain_name: str, client) -> list[str]:
     reports = client.table("coa_reports") \
         .select("id") \
         .eq("strain_id", strain_id) \
+        .eq("farm_id", farm_id) \
         .is_("deleted_at", "null") \
         .execute()
     return [r["id"] for r in (reports.data or [])]
@@ -628,7 +630,7 @@ def _get_strain_report_ids(strain_name: str, client) -> list[str]:
 
 @app.get("/strain/{strain_name}/cannabinoids")
 def strain_cannabinoids(strain_name: str, auth = Depends(verify_token)):
-    matching_ids = _get_strain_report_ids(strain_name, auth["client"])
+    matching_ids = _get_strain_report_ids(strain_name, auth["client"], auth["farm_id"])
     if not matching_ids:
         return []
     cann_rows = auth["client"].table("cannabinoid_results") \
@@ -649,7 +651,7 @@ def strain_cannabinoids(strain_name: str, auth = Depends(verify_token)):
 
 @app.get("/strain/{strain_name}/batches")
 def strain_batches(strain_name: str, auth = Depends(verify_token)):
-    matching_ids = _get_strain_report_ids(strain_name, auth["client"])
+    matching_ids = _get_strain_report_ids(strain_name, auth["client"], auth["farm_id"])
     if not matching_ids:
         return []
     reports_rows = auth["client"].table("coa_reports") \
@@ -708,7 +710,7 @@ def strain_batches(strain_name: str, auth = Depends(verify_token)):
 
 @app.get("/strain/{strain_name}/terpenes")
 def strain_terpenes(strain_name: str, auth = Depends(verify_token)):
-    matching_ids = _get_strain_report_ids(strain_name, auth["client"])
+    matching_ids = _get_strain_report_ids(strain_name, auth["client"], auth["farm_id"])
     if not matching_ids:
         return []
     rows = auth["client"].table("terpene_results") \
@@ -1390,7 +1392,7 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
         .execute()
 
     # COA batches with cannabinoids
-    report_ids = _get_strain_report_ids(strain_name, auth["client"])
+    report_ids = _get_strain_report_ids(strain_name, auth["client"], auth["farm_id"])
     batches = []
     if report_ids:
         reports = auth["client"].table("coa_reports") \
@@ -1443,7 +1445,7 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=GACP_{strain_name.replace(' ', '_')}.pdf"}
+        headers={"Content-Disposition": f"attachment; filename={urllib.parse.quote(strain_name.replace(' ', '_'), safe='')}.pdf"}
     )
 
 
@@ -1472,7 +1474,7 @@ def strain_performance_report(strain_name: str, auth = Depends(verify_token)):
         for r in (compounds_raw.data or [])
     ]
 
-    report_ids = _get_strain_report_ids(strain_name, auth["client"])
+    report_ids = _get_strain_report_ids(strain_name, auth["client"], auth["farm_id"])
     batches = []
     if report_ids:
         reports = auth["client"].table("coa_reports")             .select("id, sample_name, lab_name, report_date")             .in_("id", report_ids)             .order("report_date", desc=False)             .execute()
@@ -1524,7 +1526,7 @@ def strain_performance_report(strain_name: str, auth = Depends(verify_token)):
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=StrainPerformance_{strain_name.replace(' ', '_')}.pdf"},
+        headers={"Content-Disposition": f"attachment; filename={urllib.parse.quote(strain_name.replace(' ', '_'), safe='')}.pdf"},
     )
 
 
@@ -1625,7 +1627,7 @@ def trial_performance_report(strain_name: str, auth = Depends(verify_token)):
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=TrialPerformance_{strain_name.replace(' ', '_')}.pdf"},
+        headers={"Content-Disposition": f"attachment; filename={urllib.parse.quote(strain_name.replace(' ', '_'), safe='')}.pdf"},
     )
 
 
