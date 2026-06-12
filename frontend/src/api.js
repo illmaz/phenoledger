@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-const BASE = 'http://localhost:8001'
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
 async function authHeaders() {
   const { data: { session } } = await supabase.auth.getSession()
