@@ -1363,3 +1363,92 @@ def delete_trial_event(trial_id: str, event_id: str, current_user = Depends(veri
     if not result.data:
         raise HTTPException(status_code=404, detail="event not found")
     return {"deleted": event_id}
+
+# ── Phase 4: Compliance Reports ───────────────────────────────────────────────
+
+@app.get("/reports/gacp/{strain_name}")
+def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
+    from fastapi.responses import Response
+    from api.reports.generator import render_gacp_batch_report
+
+    # Strain
+    strain_row = auth["client"].table("strains") \
+        .select("id, name") \
+        .eq("farm_id", FARM_ID) \
+        .eq("name", strain_name) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not strain_row.data:
+        raise HTTPException(status_code=404, detail="strain not found")
+    strain_id = strain_row.data[0]["id"]
+
+    # Seed lots
+    seed_lots = auth["client"].table("seed_lots") \
+        .select("lot_code, origin_country, import_permit_number, phytosanitary_cert_number, germination_rate, arrival_date") \
+        .eq("strain_id", strain_id) \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .execute()
+
+    # Mother plants
+    mother_plants = auth["client"].table("mother_plants") \
+        .select("plant_code, established_date, clone_generation, health_status, hlvd_tested, hlvd_result, hlvd_test_date") \
+        .eq("strain_id", strain_id) \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .execute()
+
+    # COA batches with cannabinoids
+    report_ids = _get_strain_report_ids(strain_name, auth["client"])
+    batches = []
+    if report_ids:
+        reports = auth["client"].table("coa_reports") \
+            .select("sample_name, lab_name, report_date") \
+            .in_("id", report_ids) \
+            .execute()
+        cann = auth["client"].table("cannabinoid_results") \
+            .select("report_id, compound_name, value_pct") \
+            .in_("report_id", report_ids) \
+            .in_("compound_name", ["THCA", "CBD", "D9-THC"]) \
+            .execute()
+        cann_by_report: dict = {}
+        for c in (cann.data or []):
+            cann_by_report.setdefault(c["report_id"], {})[c["compound_name"]] = c["value_pct"]
+        for r in (reports.data or []):
+            rid = r.get("id") or report_ids[reports.data.index(r)]
+            compounds = cann_by_report.get(rid, {})
+            thca = compounds.get("THCA")
+            d9 = compounds.get("D9-THC", 0) or 0
+            total_thc = round(float(thca) * 0.877 + float(d9), 2) if thca else None
+            batches.append({
+                "sample_name": r.get("sample_name"),
+                "lab_name": LAB_DISPLAY.get(r.get("lab_name"), r.get("lab_name")),
+                "report_date": r.get("report_date"),
+                "thca": thca,
+                "cbd": compounds.get("CBD"),
+                "total_thc": total_thc,
+                "stability": 100,
+            })
+
+    # Trials
+    trials = auth["client"].table("trials") \
+        .select("location_name, grow_type, start_date, harvest_date, plant_count, dry_weight_g, grow_medium, light_cycle") \
+        .eq("strain_id", strain_id) \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .execute()
+
+    pdf = render_gacp_batch_report(
+        farm_name="Irie Seeds",
+        strain_name=strain_name,
+        seed_lots=seed_lots.data or [],
+        mother_plants=mother_plants.data or [],
+        batches=batches,
+        trials=trials.data or [],
+    )
+
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=GACP_{strain_name.replace(' ', '_')}.pdf"}
+    )
