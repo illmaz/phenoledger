@@ -251,6 +251,22 @@ class DUSTestUpdate(BaseModel):
     registration_number: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = Field(None, max_length=1000)
 
+class TissueCultureRecordIn(BaseModel):
+    strain_id: str
+    accession_number: str = Field(..., max_length=100)
+    banking_date: date
+    storage_facility: Optional[str] = Field(None, max_length=200)
+    culture_type: Literal["meristem","shoot_tip","callus","protoplast","embryo","pollen"]
+    viability_status: Literal["viable","degraded","unknown","destroyed"] = "viable"
+    last_viability_check: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class TissueCultureRecordUpdate(BaseModel):
+    storage_facility: Optional[str] = Field(None, max_length=200)
+    viability_status: Optional[Literal["viable","degraded","unknown","destroyed"]] = None
+    last_viability_check: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+
 
 app = FastAPI()
 
@@ -1853,3 +1869,51 @@ def delete_dus_test(test_id: str, auth = Depends(verify_token)):
     from datetime import datetime
     supabase.table("dus_tests")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", test_id)         .execute()
     return {"deleted": test_id}
+
+
+# ── Phase 4 Extended: Tissue Culture Records ──────────────────────────────────
+
+@app.get("/tissue-culture-records")
+def list_tissue_culture_records(strain_id: Optional[str] = None, auth = Depends(verify_token)):
+    q = auth["client"].table("tissue_culture_records")         .select("*, strains(name)")         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .order("banking_date", desc=True)
+    if strain_id:
+        q = q.eq("strain_id", strain_id)
+    return q.execute().data or []
+
+@app.post("/tissue-culture-records")
+def create_tissue_culture_record(payload: TissueCultureRecordIn, auth = Depends(verify_token)):
+    check = auth["client"].table("strains")         .select("id")         .eq("id", payload.strain_id)         .eq("farm_id", FARM_ID)         .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="strain not found")
+    row = supabase.table("tissue_culture_records").insert({
+        "farm_id": FARM_ID,
+        "strain_id": payload.strain_id,
+        "accession_number": payload.accession_number,
+        "banking_date": str(payload.banking_date),
+        "storage_facility": payload.storage_facility,
+        "culture_type": payload.culture_type,
+        "viability_status": payload.viability_status,
+        "last_viability_check": str(payload.last_viability_check) if payload.last_viability_check else None,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.patch("/tissue-culture-records/{record_id}")
+def update_tissue_culture_record(record_id: str, payload: TissueCultureRecordUpdate, auth = Depends(verify_token)):
+    check = auth["client"].table("tissue_culture_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="tissue culture record not found")
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if "last_viability_check" in updates and updates["last_viability_check"]:
+        updates["last_viability_check"] = str(updates["last_viability_check"])
+    row = supabase.table("tissue_culture_records").update(updates)         .eq("id", record_id)         .execute()
+    return row.data[0]
+
+@app.delete("/tissue-culture-records/{record_id}")
+def delete_tissue_culture_record(record_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("tissue_culture_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="tissue culture record not found")
+    from datetime import datetime
+    supabase.table("tissue_culture_records")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", record_id)         .execute()
+    return {"deleted": record_id}
