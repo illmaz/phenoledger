@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+python-multipart
+boto3
+supabase
+pdfplumber
+weasyprint
+jinja2
+python-dotenv
+httpx
