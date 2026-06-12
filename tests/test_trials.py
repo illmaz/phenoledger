@@ -9,7 +9,7 @@ client = TestClient(app)
 
 def mock_auth():
     mock_client = MagicMock()
-    return {"user": MagicMock(), "client": mock_client}
+    return {"user": MagicMock(), "client": mock_client, "farm_id": "fd1c1598-8769-4da9-a885-2f74bca047d6"}
 
 
 # ── Auth guards ───────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ def test_analytics_summary_trial_count_per_grow_type():
         {"grow_type": "outdoor", "dry_weight_g": 600, "wet_weight_g": 2400, "plant_count": 6,
          "strains": {"name": "Strain A"}, "trial_coa_links": []},
     ]
-    auth = {"user": MagicMock(), "client": mock_client}
+    auth = {"user": MagicMock(), "client": mock_client, "farm_id": "fd1c1598-8769-4da9-a885-2f74bca047d6"}
     result = trials_analytics_summary(auth=auth)
     by_type = {r["grow_type"]: r for r in result}
     assert by_type["indoor"]["trial_count"] == 2
@@ -116,7 +116,7 @@ def test_analytics_summary_yield_efficiency_calculated():
         {"grow_type": "indoor", "dry_weight_g": 1000.0, "wet_weight_g": 4000.0, "plant_count": 10,
          "strains": {"name": "Strain A"}, "trial_coa_links": []},
     ]
-    auth = {"user": MagicMock(), "client": mock_client}
+    auth = {"user": MagicMock(), "client": mock_client, "farm_id": "fd1c1598-8769-4da9-a885-2f74bca047d6"}
     result = trials_analytics_summary(auth=auth)
     assert result[0]["avg_yield_efficiency_pct"] == 25.0
 
@@ -144,7 +144,7 @@ def test_analytics_summary_thca_one_value_per_trial():
             ]
         },
     ]
-    auth = {"user": MagicMock(), "client": mock_client}
+    auth = {"user": MagicMock(), "client": mock_client, "farm_id": "fd1c1598-8769-4da9-a885-2f74bca047d6"}
     result = trials_analytics_summary(auth=auth)
     # Should average first THCA from each trial: (28.0 + 26.0) / 2 = 27.0
     assert result[0]["avg_thca"] == 27.0

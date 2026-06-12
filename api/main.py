@@ -17,7 +17,6 @@ from phenoledger.extractors.botanacor import extract as botanacor_extract, extra
 from phenoledger.extractors.analytics_labs import extract as analytics_labs_extract, extract_header as analytics_labs_header
 from datetime import datetime, timezone, date
 
-FARM_ID = os.environ["FARM_ID"]
 
 LAB_DISPLAY = {
     "sclabs":             "SC Labs",
@@ -289,7 +288,7 @@ def overview(auth = Depends(verify_token)):
 
     strains_rows = client.table("strain_consistency") \
         .select("strain_name, avg_pct, stability_score, status") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("compound_name", "THCA") \
         .execute()
     strains_data: list[dict] = strains_rows.data  # type: ignore[assignment]
@@ -302,14 +301,14 @@ def overview(auth = Depends(verify_token)):
 
     count_rows = client.table("coa_uploads") \
         .select("id", count="exact") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .execute()
     coa_count = count_rows.count or 0
 
     uploads_rows = client.table("coa_uploads") \
         .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date)") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .range(0, 4) \
@@ -334,7 +333,7 @@ def overview(auth = Depends(verify_token)):
 
     alerts_rows = client.table("strain_consistency") \
         .select("strain_name, compound_name, status, cv_pct, stability_score") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .in_("status", ["watch", "drift"]) \
         .execute()
     alerts_data: list[dict] = alerts_rows.data  # type: ignore[assignment]
@@ -361,7 +360,7 @@ def overview(auth = Depends(verify_token)):
 
 
 @app.post("/upload")
-async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
+async def upload_coa(file: UploadFile, auth = Depends(verify_token)):
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="only PDF files accepted")
 
@@ -377,7 +376,7 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
     content_hash = hashlib.sha256(contents).hexdigest()
     existing = supabase.table("coa_uploads") \
         .select("id") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("content_hash", content_hash) \
         .execute()
     if existing.data:
@@ -392,7 +391,7 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
     )
 
     upload = supabase.table("coa_uploads").insert({
-        "farm_id": FARM_ID,
+        "farm_id": auth["farm_id"],
         "s3_bucket": os.environ["AWS_S3_BUCKET"],
         "s3_key": s3_key,
         "original_filename": file.filename,
@@ -407,105 +406,106 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
         tmp.write(contents)
         tmp_path = tmp.name
 
-    lab = detect(tmp_path)
+    try:
+        lab = detect(tmp_path)
 
-    report = supabase.table("coa_reports").insert({
-        "farm_id": FARM_ID,
-        "upload_id": upload_id,
-        "lab_name": lab.value if lab != LabFamily.UNKNOWN else None,
-    }).execute()
-
-    report_id: str = report.data[0]["id"]  # type: ignore[index]
-
-    if lab == LabFamily.SCLABS:
-        extracted = sclabs_extract(tmp_path)
-    elif lab == LabFamily.BOTANACOR:
-        extracted = botanacor_extract(tmp_path)
-    elif lab == LabFamily.CONFIDENT_LIMS:
-        extracted = confident_lims_extract(tmp_path)
-    elif lab == LabFamily.ANALYTICS_LABS:
-        extracted = analytics_labs_extract(tmp_path)
-    else:
-        extracted = {"cannabinoids": [], "terpenes": []}
-
-    for r in extracted["cannabinoids"]:
-        supabase.table("cannabinoid_results").insert({
-            "farm_id": FARM_ID,
-            "report_id": report_id,
-            "compound_name": r["compound"],
-            "value_pct": float(r["value_pct"]) if r["value_pct"] else None,
-            "value_raw": float(r["value_mg_g"]) if r["value_mg_g"] else None,
-            "unit_raw": "mg/g",
+        report = supabase.table("coa_reports").insert({
+            "farm_id": auth["farm_id"],
+            "upload_id": upload_id,
+            "lab_name": lab.value if lab != LabFamily.UNKNOWN else None,
         }).execute()
 
-    terpenes_with_value = [r for r in extracted["terpenes"] if r["value_pct"] is not None]
-    if extracted["terpenes"] and not terpenes_with_value:
-        logging.warning("upload %s: %d terpenes extracted but all have null value_pct", upload_id, len(extracted["terpenes"]))
-    for r in terpenes_with_value:
-        try:
-            supabase.table("terpene_results").insert({
-                "farm_id": FARM_ID,
+        report_id: str = report.data[0]["id"]  # type: ignore[index]
+
+        if lab == LabFamily.SCLABS:
+            extracted = sclabs_extract(tmp_path)
+        elif lab == LabFamily.BOTANACOR:
+            extracted = botanacor_extract(tmp_path)
+        elif lab == LabFamily.CONFIDENT_LIMS:
+            extracted = confident_lims_extract(tmp_path)
+        elif lab == LabFamily.ANALYTICS_LABS:
+            extracted = analytics_labs_extract(tmp_path)
+        else:
+            extracted = {"cannabinoids": [], "terpenes": []}
+
+        for r in extracted["cannabinoids"]:
+            supabase.table("cannabinoid_results").insert({
+                "farm_id": auth["farm_id"],
                 "report_id": report_id,
                 "compound_name": r["compound"],
-                "value_pct": float(r["value_pct"]),
+                "value_pct": float(r["value_pct"]) if r["value_pct"] else None,
                 "value_raw": float(r["value_mg_g"]) if r["value_mg_g"] else None,
                 "unit_raw": "mg/g",
             }).execute()
-        except Exception as e:
-            logging.error("Terpene insert failed: %s — %s", r["compound"], e)
 
-    if lab == LabFamily.SCLABS:
-        header = sclabs_header(tmp_path)
-    elif lab == LabFamily.BOTANACOR:
-        header = botanacor_header(tmp_path)
-    elif lab == LabFamily.CONFIDENT_LIMS:
-        header = confident_lims_header(tmp_path)
-    elif lab == LabFamily.ANALYTICS_LABS:
-        header = analytics_labs_header(tmp_path)
-    else:
-        header = {}
+        terpenes_with_value = [r for r in extracted["terpenes"] if r["value_pct"] is not None]
+        if extracted["terpenes"] and not terpenes_with_value:
+            logging.warning("upload %s: %d terpenes extracted but all have null value_pct", upload_id, len(extracted["terpenes"]))
+        for r in terpenes_with_value:
+            try:
+                supabase.table("terpene_results").insert({
+                    "farm_id": auth["farm_id"],
+                    "report_id": report_id,
+                    "compound_name": r["compound"],
+                    "value_pct": float(r["value_pct"]),
+                    "value_raw": float(r["value_mg_g"]) if r["value_mg_g"] else None,
+                    "unit_raw": "mg/g",
+                }).execute()
+            except Exception as e:
+                logging.error("Terpene insert failed: %s — %s", r["compound"], e)
 
-    if header:
-        supabase.table("coa_reports").update({
-            "sample_name": header.get("sample_name"),
-            "report_date": header.get("report_date"),
-            "collection_date": header.get("collection_date"),
-            "received_date": header.get("received_date"),
-            "overall_pass_fail": header.get("overall_pass_fail"),
-            "reported_batch_number": header.get("reported_batch_number"),
-        }).eq("id", report_id).execute()
-
-        strain_name_raw = header.get("sample_name") or _display_name(file.filename or "")
-        strain_name = strain_name_raw.split(" Received:")[0].split(" - Flower")[0].strip()
-        if strain_name != strain_name_raw:
-            logging.warning("Strain name cleaned: %r → %r", strain_name_raw, strain_name)
-
-        existing = supabase.table("strains") \
-            .select("id") \
-            .eq("farm_id", FARM_ID) \
-            .eq("name", strain_name) \
-            .is_("deleted_at", "null") \
-            .execute()
-
-        if existing.data:
-            strain_id = existing.data[0]["id"]
+        if lab == LabFamily.SCLABS:
+            header = sclabs_header(tmp_path)
+        elif lab == LabFamily.BOTANACOR:
+            header = botanacor_header(tmp_path)
+        elif lab == LabFamily.CONFIDENT_LIMS:
+            header = confident_lims_header(tmp_path)
+        elif lab == LabFamily.ANALYTICS_LABS:
+            header = analytics_labs_header(tmp_path)
         else:
-            new_strain = supabase.table("strains").insert({
-                "farm_id": FARM_ID,
-                "name": strain_name,
-            }).execute()
-            strain_id = new_strain.data[0]["id"]  # type: ignore[index]
+            header = {}
 
-        supabase.table("coa_reports") \
-            .update({"strain_id": strain_id}) \
-            .eq("id", report_id) \
-            .execute()
+        if header:
+            supabase.table("coa_reports").update({
+                "sample_name": header.get("sample_name"),
+                "report_date": header.get("report_date"),
+                "collection_date": header.get("collection_date"),
+                "received_date": header.get("received_date"),
+                "overall_pass_fail": header.get("overall_pass_fail"),
+                "reported_batch_number": header.get("reported_batch_number"),
+            }).eq("id", report_id).execute()
 
-    supabase.table("coa_uploads").update({
-        "extraction_status": "confirmed",
-    }).eq("id", upload_id).execute()
+            strain_name_raw = header.get("sample_name") or _display_name(file.filename or "")
+            strain_name = strain_name_raw.split(" Received:")[0].split(" - Flower")[0].strip()
+            if strain_name != strain_name_raw:
+                logging.warning("Strain name cleaned: %r → %r", strain_name_raw, strain_name)
 
-    os.unlink(tmp_path)
+            existing = supabase.table("strains") \
+                .select("id") \
+                .eq("farm_id", auth["farm_id"]) \
+                .eq("name", strain_name) \
+                .is_("deleted_at", "null") \
+                .execute()
+
+            if existing.data:
+                strain_id = existing.data[0]["id"]
+            else:
+                new_strain = supabase.table("strains").insert({
+                    "farm_id": auth["farm_id"],
+                    "name": strain_name,
+                }).execute()
+                strain_id = new_strain.data[0]["id"]  # type: ignore[index]
+
+            supabase.table("coa_reports") \
+                .update({"strain_id": strain_id}) \
+                .eq("id", report_id) \
+                .execute()
+
+        supabase.table("coa_uploads").update({
+            "extraction_status": "confirmed",
+        }).eq("id", upload_id).execute()
+    finally:
+        os.unlink(tmp_path)
 
     return {
         "upload_id": upload_id,
@@ -520,7 +520,7 @@ async def upload_coa(file: UploadFile, current_user = Depends(verify_token)):
 def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0):
     rows = auth["client"].table("coa_uploads") \
         .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date, sample_name)") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .range(offset, offset + limit - 1) \
@@ -545,7 +545,7 @@ def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0)
 def uploads_count(auth = Depends(verify_token)):
     rows = (auth["client"].table("coa_uploads")
         .select("*", count="exact")
-        .eq("farm_id", FARM_ID)
+        .eq("farm_id", auth["farm_id"])
         .is_("deleted_at", "null")
         .execute())
     return {"count": rows.count or 0}
@@ -555,7 +555,7 @@ def uploads_count(auth = Depends(verify_token)):
 def consistency(auth = Depends(verify_token)):
     rows = auth["client"].table("strain_consistency") \
         .select("strain_name, avg_pct") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("compound_name", "THCA") \
         .execute()
     data: list[dict] = rows.data  # type: ignore[assignment]
@@ -568,7 +568,7 @@ def consistency(auth = Depends(verify_token)):
 def consistency_alerts(auth = Depends(verify_token)):
     rows = auth["client"].table("strain_consistency") \
         .select("strain_name, compound_name, status, cv_pct, stability_score") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .in_("status", ["watch", "drift"]) \
         .execute()
     data: list[dict] = rows.data  # type: ignore[assignment]
@@ -588,7 +588,7 @@ def consistency_alerts(auth = Depends(verify_token)):
 def list_strains(auth = Depends(verify_token)):
     rows = auth["client"].table("strain_consistency") \
         .select("strain_id, strain_name, batch_count, avg_pct, stability_score, status, farm_id") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("compound_name", "THCA") \
         .execute()
     data: list[dict] = rows.data  # type: ignore[assignment]
@@ -611,7 +611,7 @@ def _get_strain_report_ids(strain_name: str, client) -> list[str]:
     """Look up report IDs for a strain by name using strain_id join."""
     strain_row = client.table("strains") \
         .select("id") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("name", strain_name) \
         .is_("deleted_at", "null") \
         .execute()
@@ -732,7 +732,7 @@ def get_pdf_url(upload_id: str, auth = Depends(verify_token)):
     row = auth["client"].table("coa_uploads") \
         .select("s3_bucket, s3_key, farm_id") \
         .eq("id", upload_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .single() \
         .execute()
@@ -748,11 +748,11 @@ def get_pdf_url(upload_id: str, auth = Depends(verify_token)):
 
 
 @app.delete("/strain/{strain_name}")
-def delete_strain(strain_name: str, current_user = Depends(verify_token)):
+def delete_strain(strain_name: str, auth = Depends(verify_token)):
     now = datetime.now(timezone.utc).isoformat()
     strain_row = supabase.table("strains") \
         .select("id") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("name", strain_name) \
         .is_("deleted_at", "null") \
         .execute()
@@ -762,7 +762,7 @@ def delete_strain(strain_name: str, current_user = Depends(verify_token)):
     strain_id = strain_data[0]["id"]
     reports = supabase.table("coa_reports") \
         .select("id, upload_id") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("strain_id", strain_id) \
         .is_("deleted_at", "null") \
         .execute()
@@ -790,7 +790,7 @@ def delete_strain(strain_name: str, current_user = Depends(verify_token)):
     supabase.table("strains") \
         .update({"deleted_at": now}) \
         .eq("id", strain_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     return {"deleted": strain_name}
 
@@ -801,7 +801,7 @@ def delete_strain(strain_name: str, current_user = Depends(verify_token)):
 def list_mother_plants(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("mother_plants") \
         .select("*, strains(name)") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .range(offset, offset + limit - 1) \
@@ -810,12 +810,12 @@ def list_mother_plants(limit: int = 50, offset: int = 0, auth = Depends(verify_t
 
 
 @app.post("/mother-plants")
-def create_mother_plant(payload: MotherPlantIn, current_user = Depends(verify_token)):
+def create_mother_plant(payload: MotherPlantIn, auth = Depends(verify_token)):
     strain_id = None
     if payload.strain_name:
         existing = supabase.table("strains") \
             .select("id") \
-            .eq("farm_id", FARM_ID) \
+            .eq("farm_id", auth["farm_id"]) \
             .eq("name", payload.strain_name) \
             .is_("deleted_at", "null") \
             .execute()
@@ -824,20 +824,20 @@ def create_mother_plant(payload: MotherPlantIn, current_user = Depends(verify_to
             strain_id = ex[0]["id"]
         else:
             ns = supabase.table("strains").insert({
-                "farm_id": FARM_ID, "name": payload.strain_name,
+                "farm_id": auth["farm_id"], "name": payload.strain_name,
             }).execute()
             ns_data: list[dict] = ns.data  # type: ignore[assignment]
             strain_id = ns_data[0]["id"] if ns_data else None
     existing_code = supabase.table("mother_plants") \
         .select("id") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("plant_code", payload.plant_code) \
         .is_("deleted_at", "null") \
         .execute()
     if existing_code.data:
         raise HTTPException(status_code=409, detail=f"Plant code '{payload.plant_code}' already exists")
     row = supabase.table("mother_plants").insert({
-        "farm_id": FARM_ID,
+        "farm_id": auth["farm_id"],
         "plant_code": payload.plant_code,
         "strain_id": strain_id,
         "established_date": payload.established_date.isoformat() if payload.established_date else None,
@@ -856,7 +856,7 @@ def create_mother_plant(payload: MotherPlantIn, current_user = Depends(verify_to
 
 
 @app.put("/mother-plants/{plant_id}")
-def update_mother_plant(plant_id: str, payload: dict, current_user = Depends(verify_token)):
+def update_mother_plant(plant_id: str, payload: dict, auth = Depends(verify_token)):
     allowed = {"health_status", "hlvd_result", "hlvd_test_date", "last_cloned_date",
                "total_clones_taken", "notes"}
     update = {k: v for k, v in payload.items() if k in allowed}
@@ -865,17 +865,17 @@ def update_mother_plant(plant_id: str, payload: dict, current_user = Depends(ver
     supabase.table("mother_plants") \
         .update(update) \
         .eq("id", plant_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     return {"updated": plant_id}
 
 
 @app.delete("/mother-plants/{plant_id}")
-def delete_mother_plant(plant_id: str, current_user = Depends(verify_token)):
+def delete_mother_plant(plant_id: str, auth = Depends(verify_token)):
     result = supabase.table("mother_plants") \
         .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
         .eq("id", plant_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="mother plant not found")
@@ -886,7 +886,7 @@ def delete_mother_plant(plant_id: str, current_user = Depends(verify_token)):
 def list_seed_lots(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("seed_lots") \
         .select("*, strains(name)") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .range(offset, offset + limit - 1) \
@@ -895,21 +895,21 @@ def list_seed_lots(limit: int = 50, offset: int = 0, auth = Depends(verify_token
 
 
 @app.post("/seed-lots")
-def create_seed_lot(payload: SeedLotIn, current_user = Depends(verify_token)):
+def create_seed_lot(payload: SeedLotIn, auth = Depends(verify_token)):
     # Use strain_id directly if provided, otherwise look up by name
     strain_id = payload.strain_id or None
     if strain_id:
         strain_check = supabase.table("strains") \
             .select("id") \
             .eq("id", strain_id) \
-            .eq("farm_id", FARM_ID) \
+            .eq("farm_id", auth["farm_id"]) \
             .execute()
         if not strain_check.data:
             raise HTTPException(status_code=404, detail="strain not found")
     if not strain_id and payload.strain_name:
         existing = supabase.table("strains") \
             .select("id") \
-            .eq("farm_id", FARM_ID) \
+            .eq("farm_id", auth["farm_id"]) \
             .eq("name", payload.strain_name) \
             .is_("deleted_at", "null") \
             .execute()
@@ -918,20 +918,20 @@ def create_seed_lot(payload: SeedLotIn, current_user = Depends(verify_token)):
             strain_id = ex[0]["id"]
         else:
             ns = supabase.table("strains").insert({
-                "farm_id": FARM_ID, "name": payload.strain_name,
+                "farm_id": auth["farm_id"], "name": payload.strain_name,
             }).execute()
             ns_data: list[dict] = ns.data  # type: ignore[assignment]
             strain_id = ns_data[0]["id"] if ns_data else None
     existing_code = supabase.table("seed_lots") \
         .select("id") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("lot_code", payload.lot_code) \
         .is_("deleted_at", "null") \
         .execute()
     if existing_code.data:
         raise HTTPException(status_code=409, detail=f"Lot code '{payload.lot_code}' already exists")
     row = supabase.table("seed_lots").insert({
-        "farm_id": FARM_ID,
+        "farm_id": auth["farm_id"],
         "lot_code": payload.lot_code,
         "strain_id": strain_id,
         "origin_country": payload.origin_country,
@@ -947,25 +947,25 @@ def create_seed_lot(payload: SeedLotIn, current_user = Depends(verify_token)):
 
 
 @app.put("/seed-lots/{lot_id}")
-def update_seed_lot(lot_id: str, payload: SeedLotUpdate, current_user = Depends(verify_token)):
+def update_seed_lot(lot_id: str, payload: SeedLotUpdate, auth = Depends(verify_token)):
     update = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if not update:
         raise HTTPException(status_code=400, detail="No valid fields to update")
     result = supabase.table("seed_lots") \
         .update(update) \
         .eq("id", lot_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="seed lot not found")
     return {"updated": lot_id}
 
 @app.delete("/seed-lots/{lot_id}")
-def delete_seed_lot(lot_id: str, current_user = Depends(verify_token)):
+def delete_seed_lot(lot_id: str, auth = Depends(verify_token)):
     result = supabase.table("seed_lots") \
         .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
         .eq("id", lot_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="seed lot not found")
@@ -976,7 +976,7 @@ def delete_seed_lot(lot_id: str, current_user = Depends(verify_token)):
 def strain_lineage(strain_name: str, auth = Depends(verify_token)):
     sr = auth["client"].table("strains") \
         .select("id") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("name", strain_name) \
         .is_("deleted_at", "null") \
         .execute()
@@ -987,16 +987,16 @@ def strain_lineage(strain_name: str, auth = Depends(verify_token)):
     seed_lots = auth["client"].table("seed_lots") \
         .select("*") \
         .eq("strain_id", sid) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .execute()
     mother_plants = auth["client"].table("mother_plants") \
         .select("*, propagations(*, coa_reports(id, sample_name, report_date))") \
         .eq("strain_id", sid) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .execute()
-    breeding = auth["client"].table("breeding_records")         .select("*, parent_a:strains!parent_strain_a_id(name), parent_b:strains!parent_strain_b_id(name)")         .eq("result_strain_id", sid)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    breeding = auth["client"].table("breeding_records")         .select("*, parent_a:strains!parent_strain_a_id(name), parent_b:strains!parent_strain_b_id(name)")         .eq("result_strain_id", sid)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     sl: list[dict] = seed_lots.data  # type: ignore[assignment]
     mp: list[dict] = mother_plants.data  # type: ignore[assignment]
     br: list[dict] = breeding.data  # type: ignore[assignment]
@@ -1008,7 +1008,7 @@ def strain_lineage(strain_name: str, auth = Depends(verify_token)):
 def list_propagations(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("propagations") \
         .select("*, mother_plants(plant_code, strains(name)), coa_reports(sample_name, report_date)") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .range(offset, offset + limit - 1) \
@@ -1016,16 +1016,16 @@ def list_propagations(limit: int = 50, offset: int = 0, auth = Depends(verify_to
     return rows.data
 
 @app.post("/propagations")
-def create_propagation(payload: PropagationIn, current_user = Depends(verify_token)):
+def create_propagation(payload: PropagationIn, auth = Depends(verify_token)):
     mp_check = supabase.table("mother_plants") \
         .select("id") \
         .eq("id", payload.mother_plant_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not mp_check.data:
         raise HTTPException(status_code=404, detail="mother plant not found")
     row = supabase.table("propagations").insert({
-        "farm_id": FARM_ID,
+        "farm_id": auth["farm_id"],
         "mother_plant_id": payload.mother_plant_id,
         "report_id": payload.report_id,
         "propagation_date": payload.propagation_date.isoformat() if payload.propagation_date else None,
@@ -1037,25 +1037,25 @@ def create_propagation(payload: PropagationIn, current_user = Depends(verify_tok
     return row_data[0]
 
 @app.put("/propagations/{prop_id}")
-def update_propagation(prop_id: str, payload: PropagationUpdate, current_user = Depends(verify_token)):
+def update_propagation(prop_id: str, payload: PropagationUpdate, auth = Depends(verify_token)):
     update = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if not update:
         raise HTTPException(status_code=400, detail="No valid fields to update")
     result = supabase.table("propagations") \
         .update(update) \
         .eq("id", prop_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="propagation not found")
     return {"updated": prop_id}
 
 @app.delete("/propagations/{prop_id}")
-def delete_propagation(prop_id: str, current_user = Depends(verify_token)):
+def delete_propagation(prop_id: str, auth = Depends(verify_token)):
     result = supabase.table("propagations") \
         .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
         .eq("id", prop_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="propagation not found")
@@ -1067,7 +1067,7 @@ def delete_propagation(prop_id: str, current_user = Depends(verify_token)):
 def list_trials(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("trials") \
         .select("*, strains(name), mother_plants(plant_code), trial_coa_links(report_id)") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
         .range(offset, offset + limit - 1) \
@@ -1075,12 +1075,12 @@ def list_trials(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
     return rows.data
 
 @app.post("/trials")
-def create_trial(payload: TrialIn, current_user = Depends(verify_token)):
+def create_trial(payload: TrialIn, auth = Depends(verify_token)):
     if payload.strain_id:
         strain_check = supabase.table("strains") \
             .select("id") \
             .eq("id", payload.strain_id) \
-            .eq("farm_id", FARM_ID) \
+            .eq("farm_id", auth["farm_id"]) \
             .execute()
         if not strain_check.data:
             raise HTTPException(status_code=404, detail="strain not found")
@@ -1088,12 +1088,12 @@ def create_trial(payload: TrialIn, current_user = Depends(verify_token)):
         mp_check = supabase.table("mother_plants") \
             .select("id") \
             .eq("id", payload.mother_plant_id) \
-            .eq("farm_id", FARM_ID) \
+            .eq("farm_id", auth["farm_id"]) \
             .execute()
         if not mp_check.data:
             raise HTTPException(status_code=404, detail="mother plant not found")
     row = supabase.table("trials").insert({
-        "farm_id": FARM_ID,
+        "farm_id": auth["farm_id"],
         "strain_id": payload.strain_id,
         "mother_plant_id": payload.mother_plant_id,
         "location_name": payload.location_name,
@@ -1119,19 +1119,19 @@ def create_trial(payload: TrialIn, current_user = Depends(verify_token)):
     return row_data[0]
 
 @app.post("/trials/{trial_id}/coa")
-def link_trial_coa(trial_id: str, payload: COALinkIn, current_user = Depends(verify_token)):
+def link_trial_coa(trial_id: str, payload: COALinkIn, auth = Depends(verify_token)):
     report_id = payload.report_id
     trial_check = supabase.table("trials") \
         .select("id") \
         .eq("id", trial_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not trial_check.data:
         raise HTTPException(status_code=404, detail="trial not found")
     report_check = supabase.table("coa_reports") \
         .select("id") \
         .eq("id", report_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not report_check.data:
         raise HTTPException(status_code=404, detail="report not found")
@@ -1155,7 +1155,7 @@ def link_trial_coa(trial_id: str, payload: COALinkIn, current_user = Depends(ver
 def trials_analytics(auth = Depends(verify_token)):
     rows = auth["client"].table("trials") \
         .select("*, strains(name), trial_coa_links(report_id, coa_reports(sample_name, report_date, cannabinoid_results(compound_name, value_pct)))") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .execute()
     data: list[dict] = rows.data or []
@@ -1189,7 +1189,7 @@ def trials_analytics(auth = Depends(verify_token)):
 def trials_analytics_summary(auth = Depends(verify_token)):
     rows = auth["client"].table("trials") \
         .select("grow_type, dry_weight_g, wet_weight_g, plant_count, strains(name), trial_coa_links(coa_reports(cannabinoid_results(compound_name, value_pct)))") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .execute()
     data: list[dict] = rows.data or []
@@ -1238,7 +1238,7 @@ def get_trial(trial_id: str, auth = Depends(verify_token)):
     row = auth["client"].table("trials") \
         .select("*, strains(name), mother_plants(plant_code), trial_coa_links(report_id, coa_reports(sample_name, report_date))") \
         .eq("id", trial_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .single() \
         .execute()
     if not row.data:
@@ -1246,24 +1246,24 @@ def get_trial(trial_id: str, auth = Depends(verify_token)):
     return row.data
 
 @app.delete("/trials/{trial_id}")
-def delete_trial(trial_id: str, current_user = Depends(verify_token)):
+def delete_trial(trial_id: str, auth = Depends(verify_token)):
     now = datetime.now(timezone.utc).isoformat()
     result = supabase.table("trials") \
         .update({"deleted_at": now}) \
         .eq("id", trial_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="trial not found")
     supabase.table("trial_events") \
         .update({"deleted_at": now}) \
         .eq("trial_id", trial_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     return {"deleted": trial_id}
 
 @app.put("/trials/{trial_id}")
-def update_trial(trial_id: str, payload: TrialUpdate, current_user = Depends(verify_token)):
+def update_trial(trial_id: str, payload: TrialUpdate, auth = Depends(verify_token)):
     update = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if "start_date" in update and update["start_date"]:
         update["start_date"] = update["start_date"].isoformat()
@@ -1274,18 +1274,18 @@ def update_trial(trial_id: str, payload: TrialUpdate, current_user = Depends(ver
     result = supabase.table("trials") \
         .update(update) \
         .eq("id", trial_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="trial not found")
     return {"updated": trial_id}
 
 @app.delete("/trials/{trial_id}/coa/{report_id}")
-def unlink_trial_coa(trial_id: str, report_id: str, current_user = Depends(verify_token)):
+def unlink_trial_coa(trial_id: str, report_id: str, auth = Depends(verify_token)):
     trial_check = supabase.table("trials") \
         .select("id") \
         .eq("id", trial_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not trial_check.data:
         raise HTTPException(status_code=404, detail="trial not found")
@@ -1306,31 +1306,31 @@ def list_trial_events(trial_id: str, auth = Depends(verify_token)):
     trial_check = auth["client"].table("trials") \
         .select("id") \
         .eq("id", trial_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not trial_check.data:
         raise HTTPException(status_code=404, detail="trial not found")
     rows = auth["client"].table("trial_events") \
         .select("*") \
         .eq("trial_id", trial_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .order("event_date", desc=False) \
         .execute()
     return rows.data
 
 @app.post("/trials/{trial_id}/events")
-def create_trial_event(trial_id: str, payload: TrialEventIn, current_user = Depends(verify_token)):
+def create_trial_event(trial_id: str, payload: TrialEventIn, auth = Depends(verify_token)):
     trial_check = supabase.table("trials") \
         .select("id") \
         .eq("id", trial_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not trial_check.data:
         raise HTTPException(status_code=404, detail="trial not found")
     row = supabase.table("trial_events").insert({
         "trial_id": trial_id,
-        "farm_id": FARM_ID,
+        "farm_id": auth["farm_id"],
         "event_date": payload.event_date.isoformat(),
         "event_type": payload.event_type,
         "product_name": payload.product_name,
@@ -1344,12 +1344,12 @@ def create_trial_event(trial_id: str, payload: TrialEventIn, current_user = Depe
     return row_data[0]
 
 @app.delete("/trials/{trial_id}/events/{event_id}")
-def delete_trial_event(trial_id: str, event_id: str, current_user = Depends(verify_token)):
+def delete_trial_event(trial_id: str, event_id: str, auth = Depends(verify_token)):
     result = supabase.table("trial_events") \
         .delete() \
         .eq("id", event_id) \
         .eq("trial_id", trial_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="event not found")
@@ -1365,7 +1365,7 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
     # Strain
     strain_row = auth["client"].table("strains") \
         .select("id, name") \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .eq("name", strain_name) \
         .is_("deleted_at", "null") \
         .execute()
@@ -1377,7 +1377,7 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
     seed_lots = auth["client"].table("seed_lots") \
         .select("lot_code, origin_country, import_permit_number, phytosanitary_cert_number, germination_rate, arrival_date") \
         .eq("strain_id", strain_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .execute()
 
@@ -1385,7 +1385,7 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
     mother_plants = auth["client"].table("mother_plants") \
         .select("plant_code, established_date, clone_generation, health_status, hlvd_tested, hlvd_result, hlvd_test_date") \
         .eq("strain_id", strain_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .execute()
 
@@ -1425,11 +1425,11 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
     trials = auth["client"].table("trials") \
         .select("location_name, grow_type, start_date, harvest_date, plant_count, dry_weight_g, grow_medium, light_cycle") \
         .eq("strain_id", strain_id) \
-        .eq("farm_id", FARM_ID) \
+        .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .execute()
 
-    farm_row = auth["client"].table("farms").select("name").eq("id", FARM_ID).execute()
+    farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
     farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
     pdf = render_gacp_batch_report(
         farm_name=farm_name,
@@ -1452,15 +1452,15 @@ def strain_performance_report(strain_name: str, auth = Depends(verify_token)):
     from fastapi.responses import Response
     from api.reports.generator import render_strain_performance_report
 
-    strain_row = auth["client"].table("strains")         .select("id")         .eq("farm_id", FARM_ID)         .eq("name", strain_name)         .is_("deleted_at", "null")         .execute()
+    strain_row = auth["client"].table("strains")         .select("id")         .eq("farm_id", auth["farm_id"])         .eq("name", strain_name)         .is_("deleted_at", "null")         .execute()
     if not strain_row.data:
         raise HTTPException(status_code=404, detail="strain not found")
     strain_id = strain_row.data[0]["id"]
 
-    farm_row = auth["client"].table("farms").select("name").eq("id", FARM_ID).execute()
+    farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
     farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
 
-    compounds_raw = auth["client"].table("strain_consistency")         .select("compound_name, avg_pct, cv_pct, stability_score, status")         .eq("farm_id", FARM_ID)         .eq("strain_name", strain_name)         .execute()
+    compounds_raw = auth["client"].table("strain_consistency")         .select("compound_name, avg_pct, cv_pct, stability_score, status")         .eq("farm_id", auth["farm_id"])         .eq("strain_name", strain_name)         .execute()
     compounds = [
         {
             "compound_name": r["compound_name"],
@@ -1533,10 +1533,10 @@ def import_summary_report(auth = Depends(verify_token)):
     from fastapi.responses import Response
     from api.reports.generator import render_import_summary_report
 
-    farm_row = auth["client"].table("farms").select("name").eq("id", FARM_ID).execute()
+    farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
     farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
 
-    seed_lots_raw = auth["client"].table("seed_lots")         .select("*, strains(name)")         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .order("arrival_date", desc=False)         .execute()
+    seed_lots_raw = auth["client"].table("seed_lots")         .select("*, strains(name)")         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .order("arrival_date", desc=False)         .execute()
     seed_lots = seed_lots_raw.data or []
 
     origin_countries: dict[str, int] = {}
@@ -1565,15 +1565,15 @@ def trial_performance_report(strain_name: str, auth = Depends(verify_token)):
     from fastapi.responses import Response
     from api.reports.generator import render_trial_performance_report
 
-    strain_row = auth["client"].table("strains")         .select("id")         .eq("farm_id", FARM_ID)         .eq("name", strain_name)         .is_("deleted_at", "null")         .execute()
+    strain_row = auth["client"].table("strains")         .select("id")         .eq("farm_id", auth["farm_id"])         .eq("name", strain_name)         .is_("deleted_at", "null")         .execute()
     if not strain_row.data:
         raise HTTPException(status_code=404, detail="strain not found")
     strain_id = strain_row.data[0]["id"]
 
-    farm_row = auth["client"].table("farms").select("name").eq("id", FARM_ID).execute()
+    farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
     farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
 
-    trials_raw = auth["client"].table("trials")         .select("location_name, grow_type, start_date, harvest_date, plant_count, dry_weight_g, wet_weight_g, grow_medium, light_cycle, trial_coa_links(coa_reports(cannabinoid_results(compound_name, value_pct)))")         .eq("farm_id", FARM_ID)         .eq("strain_id", strain_id)         .is_("deleted_at", "null")         .order("start_date", desc=False)         .execute()
+    trials_raw = auth["client"].table("trials")         .select("location_name, grow_type, start_date, harvest_date, plant_count, dry_weight_g, wet_weight_g, grow_medium, light_cycle, trial_coa_links(coa_reports(cannabinoid_results(compound_name, value_pct)))")         .eq("farm_id", auth["farm_id"])         .eq("strain_id", strain_id)         .is_("deleted_at", "null")         .order("start_date", desc=False)         .execute()
     trials = trials_raw.data or []
 
     by_grow_type: dict = {}
@@ -1633,21 +1633,21 @@ def trial_performance_report(strain_name: str, auth = Depends(verify_token)):
 
 @app.get("/breeding-records")
 def list_breeding_records(auth = Depends(verify_token)):
-    rows = auth["client"].table("breeding_records")         .select("*, result_strain:strains!result_strain_id(name), parent_a:strains!parent_strain_a_id(name), parent_b:strains!parent_strain_b_id(name)")         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .order("created_at", desc=True)         .execute()
+    rows = auth["client"].table("breeding_records")         .select("*, result_strain:strains!result_strain_id(name), parent_a:strains!parent_strain_a_id(name), parent_b:strains!parent_strain_b_id(name)")         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .order("created_at", desc=True)         .execute()
     return rows.data or []
 
 @app.post("/breeding-records")
 def create_breeding_record(payload: BreedingRecordIn, auth = Depends(verify_token)):
     for strain_id in [payload.result_strain_id, payload.parent_strain_a_id]:
-        check = auth["client"].table("strains")             .select("id")             .eq("id", strain_id)             .eq("farm_id", FARM_ID)             .execute()
+        check = auth["client"].table("strains")             .select("id")             .eq("id", strain_id)             .eq("farm_id", auth["farm_id"])             .execute()
         if not check.data:
             raise HTTPException(status_code=404, detail=f"strain {strain_id} not found")
     if payload.parent_strain_b_id:
-        check = auth["client"].table("strains")             .select("id")             .eq("id", payload.parent_strain_b_id)             .eq("farm_id", FARM_ID)             .execute()
+        check = auth["client"].table("strains")             .select("id")             .eq("id", payload.parent_strain_b_id)             .eq("farm_id", auth["farm_id"])             .execute()
         if not check.data:
             raise HTTPException(status_code=404, detail=f"strain {payload.parent_strain_b_id} not found")
     row = supabase.table("breeding_records").insert({
-        "farm_id": FARM_ID,
+        "farm_id": auth["farm_id"],
         "result_strain_id": payload.result_strain_id,
         "parent_strain_a_id": payload.parent_strain_a_id,
         "parent_strain_b_id": payload.parent_strain_b_id,
@@ -1661,7 +1661,7 @@ def create_breeding_record(payload: BreedingRecordIn, auth = Depends(verify_toke
 
 @app.patch("/breeding-records/{record_id}")
 def update_breeding_record(record_id: str, payload: BreedingRecordUpdate, auth = Depends(verify_token)):
-    check = auth["client"].table("breeding_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    check = auth["client"].table("breeding_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="breeding record not found")
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
@@ -1672,11 +1672,10 @@ def update_breeding_record(record_id: str, payload: BreedingRecordUpdate, auth =
 
 @app.delete("/breeding-records/{record_id}")
 def delete_breeding_record(record_id: str, auth = Depends(verify_token)):
-    check = auth["client"].table("breeding_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    check = auth["client"].table("breeding_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="breeding record not found")
-    from datetime import datetime
-    supabase.table("breeding_records")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", record_id)         .execute()
+    supabase.table("breeding_records")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", record_id)         .execute()
     return {"deleted": record_id}
 
 
@@ -1688,7 +1687,7 @@ def list_plant_health_screenings(
     report_id: Optional[str] = None,
     auth = Depends(verify_token),
 ):
-    q = auth["client"].table("plant_health_screenings")         .select("*, mother_plants(plant_code), coa_reports(sample_name)")         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .order("test_date", desc=True)
+    q = auth["client"].table("plant_health_screenings")         .select("*, mother_plants(plant_code), coa_reports(sample_name)")         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .order("test_date", desc=True)
     if mother_plant_id:
         q = q.eq("mother_plant_id", mother_plant_id)
     if report_id:
@@ -1698,15 +1697,15 @@ def list_plant_health_screenings(
 @app.post("/plant-health-screenings")
 def create_plant_health_screening(payload: PlantHealthScreeningIn, auth = Depends(verify_token)):
     if payload.mother_plant_id:
-        check = auth["client"].table("mother_plants")             .select("id")             .eq("id", payload.mother_plant_id)             .eq("farm_id", FARM_ID)             .execute()
+        check = auth["client"].table("mother_plants")             .select("id")             .eq("id", payload.mother_plant_id)             .eq("farm_id", auth["farm_id"])             .execute()
         if not check.data:
             raise HTTPException(status_code=404, detail="mother plant not found")
     if payload.report_id:
-        check = auth["client"].table("coa_reports")             .select("id")             .eq("id", payload.report_id)             .eq("farm_id", FARM_ID)             .execute()
+        check = auth["client"].table("coa_reports")             .select("id")             .eq("id", payload.report_id)             .eq("farm_id", auth["farm_id"])             .execute()
         if not check.data:
             raise HTTPException(status_code=404, detail="COA report not found")
     row = supabase.table("plant_health_screenings").insert({
-        "farm_id": FARM_ID,
+        "farm_id": auth["farm_id"],
         "mother_plant_id": payload.mother_plant_id,
         "report_id": payload.report_id,
         "pathogen": payload.pathogen,
@@ -1723,7 +1722,7 @@ def update_plant_health_screening(
     payload: PlantHealthScreeningUpdate,
     auth = Depends(verify_token),
 ):
-    check = auth["client"].table("plant_health_screenings")         .select("id")         .eq("id", screening_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    check = auth["client"].table("plant_health_screenings")         .select("id")         .eq("id", screening_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="screening not found")
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
@@ -1732,11 +1731,10 @@ def update_plant_health_screening(
 
 @app.delete("/plant-health-screenings/{screening_id}")
 def delete_plant_health_screening(screening_id: str, auth = Depends(verify_token)):
-    check = auth["client"].table("plant_health_screenings")         .select("id")         .eq("id", screening_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    check = auth["client"].table("plant_health_screenings")         .select("id")         .eq("id", screening_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="screening not found")
-    from datetime import datetime
-    supabase.table("plant_health_screenings")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", screening_id)         .execute()
+    supabase.table("plant_health_screenings")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", screening_id)         .execute()
     return {"deleted": screening_id}
 
 
@@ -1744,18 +1742,18 @@ def delete_plant_health_screening(screening_id: str, auth = Depends(verify_token
 
 @app.get("/dus-tests")
 def list_dus_tests(strain_id: Optional[str] = None, auth = Depends(verify_token)):
-    q = auth["client"].table("dus_tests")         .select("*, strains(name)")         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .order("test_date", desc=True)
+    q = auth["client"].table("dus_tests")         .select("*, strains(name)")         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .order("test_date", desc=True)
     if strain_id:
         q = q.eq("strain_id", strain_id)
     return q.execute().data or []
 
 @app.post("/dus-tests")
 def create_dus_test(payload: DUSTestIn, auth = Depends(verify_token)):
-    check = auth["client"].table("strains")         .select("id")         .eq("id", payload.strain_id)         .eq("farm_id", FARM_ID)         .execute()
+    check = auth["client"].table("strains")         .select("id")         .eq("id", payload.strain_id)         .eq("farm_id", auth["farm_id"])         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="strain not found")
     row = supabase.table("dus_tests").insert({
-        "farm_id": FARM_ID,
+        "farm_id": auth["farm_id"],
         "strain_id": payload.strain_id,
         "testing_body": payload.testing_body,
         "test_date": str(payload.test_date),
@@ -1771,7 +1769,7 @@ def create_dus_test(payload: DUSTestIn, auth = Depends(verify_token)):
 
 @app.patch("/dus-tests/{test_id}")
 def update_dus_test(test_id: str, payload: DUSTestUpdate, auth = Depends(verify_token)):
-    check = auth["client"].table("dus_tests")         .select("id")         .eq("id", test_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    check = auth["client"].table("dus_tests")         .select("id")         .eq("id", test_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="DUS test not found")
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
@@ -1780,11 +1778,10 @@ def update_dus_test(test_id: str, payload: DUSTestUpdate, auth = Depends(verify_
 
 @app.delete("/dus-tests/{test_id}")
 def delete_dus_test(test_id: str, auth = Depends(verify_token)):
-    check = auth["client"].table("dus_tests")         .select("id")         .eq("id", test_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    check = auth["client"].table("dus_tests")         .select("id")         .eq("id", test_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="DUS test not found")
-    from datetime import datetime
-    supabase.table("dus_tests")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", test_id)         .execute()
+    supabase.table("dus_tests")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", test_id)         .execute()
     return {"deleted": test_id}
 
 
@@ -1792,18 +1789,18 @@ def delete_dus_test(test_id: str, auth = Depends(verify_token)):
 
 @app.get("/tissue-culture-records")
 def list_tissue_culture_records(strain_id: Optional[str] = None, auth = Depends(verify_token)):
-    q = auth["client"].table("tissue_culture_records")         .select("*, strains(name)")         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .order("banking_date", desc=True)
+    q = auth["client"].table("tissue_culture_records")         .select("*, strains(name)")         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .order("banking_date", desc=True)
     if strain_id:
         q = q.eq("strain_id", strain_id)
     return q.execute().data or []
 
 @app.post("/tissue-culture-records")
 def create_tissue_culture_record(payload: TissueCultureRecordIn, auth = Depends(verify_token)):
-    check = auth["client"].table("strains")         .select("id")         .eq("id", payload.strain_id)         .eq("farm_id", FARM_ID)         .execute()
+    check = auth["client"].table("strains")         .select("id")         .eq("id", payload.strain_id)         .eq("farm_id", auth["farm_id"])         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="strain not found")
     row = supabase.table("tissue_culture_records").insert({
-        "farm_id": FARM_ID,
+        "farm_id": auth["farm_id"],
         "strain_id": payload.strain_id,
         "accession_number": payload.accession_number,
         "banking_date": str(payload.banking_date),
@@ -1817,7 +1814,7 @@ def create_tissue_culture_record(payload: TissueCultureRecordIn, auth = Depends(
 
 @app.patch("/tissue-culture-records/{record_id}")
 def update_tissue_culture_record(record_id: str, payload: TissueCultureRecordUpdate, auth = Depends(verify_token)):
-    check = auth["client"].table("tissue_culture_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    check = auth["client"].table("tissue_culture_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="tissue culture record not found")
     updates = {k: v for k, v in payload.model_dump().items() if v is not None}
@@ -1828,9 +1825,8 @@ def update_tissue_culture_record(record_id: str, payload: TissueCultureRecordUpd
 
 @app.delete("/tissue-culture-records/{record_id}")
 def delete_tissue_culture_record(record_id: str, auth = Depends(verify_token)):
-    check = auth["client"].table("tissue_culture_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    check = auth["client"].table("tissue_culture_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="tissue culture record not found")
-    from datetime import datetime
-    supabase.table("tissue_culture_records")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", record_id)         .execute()
+    supabase.table("tissue_culture_records")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", record_id)         .execute()
     return {"deleted": record_id}

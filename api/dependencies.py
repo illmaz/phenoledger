@@ -39,4 +39,8 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(_bearer)):
         os.environ["SUPABASE_ANON_KEY"],
     )
     user_client.postgrest.auth(token)
-    return {"user": response.user, "client": user_client}
+    farm_row = user_client.table("farm_users")         .select("farm_id")         .eq("user_id", response.user.id)         .execute()
+    if not farm_row.data:
+        raise HTTPException(status_code=403, detail="No farm associated with this account")
+    farm_id = farm_row.data[0]["farm_id"]
+    return {"user": response.user, "client": user_client, "farm_id": farm_id}

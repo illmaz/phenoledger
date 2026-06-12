@@ -12,7 +12,7 @@ SCREENING_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
 
 def mock_auth():
     mock_client = MagicMock()
-    return {"user": MagicMock(), "client": mock_client}
+    return {"user": MagicMock(), "client": mock_client, "farm_id": "fd1c1598-8769-4da9-a885-2f74bca047d6"}
 
 def mock_chain(data):
     m = MagicMock()

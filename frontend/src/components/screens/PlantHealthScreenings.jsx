@@ -45,8 +45,9 @@ function ScreeningForm({ motherPlants, uploads, onSaved }) {
     setSaving(true); setError('')
     try {
       await createPlantHealthScreening({
-        target_type:  form.target_type,
-        target_id:    form.target_id,
+        ...(form.target_type === 'mother_plant'
+          ? { mother_plant_id: form.target_id }
+          : { report_id: form.target_id }),
         pathogen:     form.pathogen,
         test_date:    form.test_date,
         result:       form.result,
