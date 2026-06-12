@@ -940,9 +940,11 @@ def strain_lineage(strain_name: str, auth = Depends(verify_token)):
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .execute()
+    breeding = auth["client"].table("breeding_records")         .select("*, parent_a:strains!parent_strain_a_id(name), parent_b:strains!parent_strain_b_id(name)")         .eq("result_strain_id", sid)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
     sl: list[dict] = seed_lots.data  # type: ignore[assignment]
     mp: list[dict] = mother_plants.data  # type: ignore[assignment]
-    return {"seed_lots": sl, "mother_plants": mp}
+    br: list[dict] = breeding.data  # type: ignore[assignment]
+    return {"seed_lots": sl, "mother_plants": mp, "breeding_records": br}
 
 # ── Propagations ──────────────────────────────────────────────────────────────
 

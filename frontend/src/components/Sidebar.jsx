@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  LayoutDashboard, Dna, FlaskConical, GitBranch, Leaf, Sprout,
+  LayoutDashboard, Dna, FlaskConical, GitBranch, GitMerge, Leaf, Sprout,
   TestTube2, FileCheck2, Building2, Globe, Zap,
 } from 'lucide-react'
 
@@ -25,9 +25,10 @@ const NAV = [
   {
     section: 'Phase 2 · Genetic Lineage',
     items: [
-      { id: 'lineage',       label: 'Lineage Tree',  Icon: GitBranch, phase: 'p2' },
-      { id: 'mother-plants', label: 'Mother Plants', Icon: Leaf,      phase: 'p2' },
-      { id: 'seed-lots',     label: 'Seed Lots',     Icon: Sprout,    phase: 'p2' },
+      { id: 'lineage',          label: 'Lineage Tree',     Icon: GitBranch, phase: 'p2' },
+      { id: 'mother-plants',    label: 'Mother Plants',    Icon: Leaf,      phase: 'p2' },
+      { id: 'seed-lots',        label: 'Seed Lots',        Icon: Sprout,    phase: 'p2' },
+      { id: 'breeding-records', label: 'Breeding Records', Icon: GitMerge,  phase: 'p2' },
     ],
   },
   {

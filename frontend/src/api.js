@@ -289,6 +289,40 @@ export async function downloadGACPReport(strainName) {
   URL.revokeObjectURL(url)
 }
 
+export async function fetchBreedingRecords() {
+  const res = await apiFetch(`${BASE}/breeding-records`, { headers: await authHeaders() })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function createBreedingRecord(payload) {
+  const res = await apiFetch(`${BASE}/breeding-records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function deleteBreedingRecord(id) {
+  const res = await apiFetch(`${BASE}/breeding-records/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
 export async function downloadStrainPerformanceReport(strainName) {
   const res = await apiFetch(`${BASE}/reports/strain-performance/${encodeURIComponent(strainName)}`, {
     headers: { ...await authHeaders() }
