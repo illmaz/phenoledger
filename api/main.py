@@ -383,7 +383,7 @@ async def upload_coa(file: UploadFile, auth = Depends(verify_token)):
     if existing.data:
         raise HTTPException(status_code=409, detail="This COA has already been uploaded")
 
-    s3_key = f"coas/{uuid.uuid4()}.pdf"
+    s3_key = f"coas/{auth['farm_id']}/{uuid.uuid4()}.pdf"
     s3.put_object(
         Bucket=os.environ["AWS_S3_BUCKET"],
         Key=s3_key,
@@ -545,9 +545,10 @@ def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0)
 @app.get("/uploads/count")
 def uploads_count(auth = Depends(verify_token)):
     rows = (auth["client"].table("coa_uploads")
-        .select("*", count="exact")
+        .select("id", count="exact")
         .eq("farm_id", auth["farm_id"])
         .is_("deleted_at", "null")
+        .limit(1)
         .execute())
     return {"count": rows.count or 0}
 
@@ -858,14 +859,20 @@ def create_mother_plant(payload: MotherPlantIn, auth = Depends(verify_token)):
 
 
 @app.put("/mother-plants/{plant_id}")
-def update_mother_plant(plant_id: str, payload: dict, auth = Depends(verify_token)):
-    allowed = {"health_status", "hlvd_result", "hlvd_test_date", "last_cloned_date",
-               "total_clones_taken", "notes"}
-    update = {k: v for k, v in payload.items() if k in allowed}
-    if not update:
-        update = {"retired_at": datetime.now(timezone.utc).isoformat()}
+def update_mother_plant(plant_id: str, payload: MotherPlantUpdate, auth = Depends(verify_token)):
+    check = auth["client"].table("mother_plants") \
+        .select("id") \
+        .eq("id", plant_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="mother plant not found")
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=422, detail="no fields to update")
     supabase.table("mother_plants") \
-        .update(update) \
+        .update(updates) \
         .eq("id", plant_id) \
         .eq("farm_id", auth["farm_id"]) \
         .execute()
