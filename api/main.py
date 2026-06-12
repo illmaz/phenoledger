@@ -586,8 +586,6 @@ def consistency_alerts(auth = Depends(verify_token)):
     ]
 
 
-@app.get("/strains")
-
 def compute_chemotype(compounds: dict) -> str:
     thc = float(compounds.get("THCA", 0) or 0) + float(compounds.get("D9-THC", 0) or 0)
     cbd = float(compounds.get("CBDA", 0) or 0) + float(compounds.get("CBD", 0) or 0)
@@ -602,6 +600,7 @@ def compute_chemotype(compounds: dict) -> str:
         return "Type III"
     return "Type V"
 
+@app.get("/strains")
 def list_strains(limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("strain_consistency") \
         .select("strain_id, strain_name, batch_count, avg_pct, stability_score, status, compound_name") \
