@@ -4,9 +4,14 @@ const BASE = 'http://localhost:8001'
 
 async function authHeaders() {
   const { data: { session } } = await supabase.auth.getSession()
-  return session?.access_token
-    ? { Authorization: `Bearer ${session.access_token}` }
-    : {}
+  if (!session) return {}
+  if (session.expires_at && session.expires_at < Date.now() / 1000) {
+    const { data: { session: refreshed } } = await supabase.auth.refreshSession()
+    return refreshed?.access_token
+      ? { Authorization: `Bearer ${refreshed.access_token}` }
+      : {}
+  }
+  return { Authorization: `Bearer ${session.access_token}` }
 }
 
 async function apiFetch(url, options = {}) {

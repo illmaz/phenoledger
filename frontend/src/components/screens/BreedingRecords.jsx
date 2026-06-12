@@ -20,8 +20,8 @@ function fmtDate(iso) {
 
 function BreedingForm({ strains, onSaved }) {
   const EMPTY = {
-    parent_a: '', parent_b: '', result_strain: '', generation: '',
-    cross_date: '', seed_count: '', success_rate: '', notes: '',
+    parent_strain_a_id: '', parent_strain_b_id: '', result_strain_id: '', generation: '',
+    cross_date: '', seed_count: '', success_rate: '', breeding_notes: '',
   }
   const [form, setForm]   = useState(EMPTY)
   const [saving, setSaving] = useState(false)
@@ -31,25 +31,25 @@ function BreedingForm({ strains, onSaved }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.parent_a)      { setError('Parent Strain A is required'); return }
-    if (!form.result_strain) { setError('Result Strain is required'); return }
-    if (!form.generation)    { setError('Generation is required'); return }
+    if (!form.parent_strain_a_id) { setError('Parent Strain A is required'); return }
+    if (!form.result_strain_id)   { setError('Result Strain is required'); return }
+    if (!form.generation)         { setError('Generation is required'); return }
     setSaving(true); setError('')
     try {
       await createBreedingRecord({
-        parent_a:      form.parent_a,
-        parent_b:      form.parent_b      || null,
-        result_strain: form.result_strain,
-        generation:    form.generation,
-        cross_date:    form.cross_date    || null,
-        seed_count:    form.seed_count    ? parseInt(form.seed_count, 10)    : null,
-        success_rate:  form.success_rate  ? parseFloat(form.success_rate)    : null,
-        notes:         form.notes         || null,
+        parent_strain_a_id: form.parent_strain_a_id,
+        parent_strain_b_id: form.parent_strain_b_id || null,
+        result_strain_id:   form.result_strain_id,
+        generation:         form.generation,
+        cross_date:         form.cross_date         || null,
+        seed_count:         form.seed_count         ? parseInt(form.seed_count, 10) : null,
+        success_rate:       form.success_rate        ? parseFloat(form.success_rate) : null,
+        breeding_notes:     form.breeding_notes      || null,
       })
       setForm(EMPTY)
-      onSaved()
+      await onSaved()
     } catch (err) {
-      setError(err.message)
+      setError(err?.message || err?.detail || JSON.stringify(err) || 'Failed to save record')
     } finally {
       setSaving(false)
     }
@@ -70,16 +70,16 @@ function BreedingForm({ strains, onSaved }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={lbl}>Parent Strain A *</label>
-            <select style={inp} value={form.parent_a} onChange={e => set('parent_a', e.target.value)} required>
+            <select style={inp} value={form.parent_strain_a_id} onChange={e => set('parent_strain_a_id', e.target.value)} required>
               <option value="">— Select strain —</option>
-              {strains.map(s => <option key={s.strain} value={s.strain}>{s.strain}</option>)}
+              {strains.map(s => <option key={s.strain_id} value={s.strain_id}>{s.strain}</option>)}
             </select>
           </div>
           <div>
             <label style={lbl}>Parent Strain B</label>
-            <select style={inp} value={form.parent_b} onChange={e => set('parent_b', e.target.value)}>
+            <select style={inp} value={form.parent_strain_b_id} onChange={e => set('parent_strain_b_id', e.target.value)}>
               <option value="">— none (selfing) —</option>
-              {strains.map(s => <option key={s.strain} value={s.strain}>{s.strain}</option>)}
+              {strains.map(s => <option key={s.strain_id} value={s.strain_id}>{s.strain}</option>)}
             </select>
           </div>
         </div>
@@ -88,9 +88,9 @@ function BreedingForm({ strains, onSaved }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={lbl}>Result Strain *</label>
-            <select style={inp} value={form.result_strain} onChange={e => set('result_strain', e.target.value)} required>
+            <select style={inp} value={form.result_strain_id} onChange={e => set('result_strain_id', e.target.value)} required>
               <option value="">— Select strain —</option>
-              {strains.map(s => <option key={s.strain} value={s.strain}>{s.strain}</option>)}
+              {strains.map(s => <option key={s.strain_id} value={s.strain_id}>{s.strain}</option>)}
             </select>
           </div>
           <div>
@@ -133,12 +133,12 @@ function BreedingForm({ strains, onSaved }) {
           <label style={lbl}>Breeding Notes</label>
           <textarea
             style={{ ...inp, resize: 'vertical', minHeight: 64, fontFamily: 'inherit' }}
-            value={form.notes}
-            onChange={e => set('notes', e.target.value)}
+            value={form.breeding_notes}
+            onChange={e => set('breeding_notes', e.target.value)}
             maxLength={500}
             placeholder="Optional notes…"
           />
-          {form.notes.length > 400 && (
+          {form.breeding_notes.length > 400 && (
             <div style={{ fontSize: 10, color: 'var(--text-3)', textAlign: 'right', marginTop: 2 }}>
               {form.notes.length}/500
             </div>
@@ -181,13 +181,13 @@ function RecordRow({ record, onDelete, last }) {
       }}
     >
       <span style={{ flex: 1, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-        {record.parent_a ?? '—'}
+        {record.parent_a?.name ?? '—'}
       </span>
       <span style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-        {record.parent_b ?? <span style={{ color: 'var(--text-3)' }}>selfing</span>}
+        {record.parent_b?.name ?? <span style={{ color: 'var(--text-3)' }}>selfing</span>}
       </span>
       <span style={{ width: 130, fontSize: 12, color: 'var(--text)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {record.result_strain ?? '—'}
+        {record.result_strain?.name ?? '—'}
       </span>
       <span style={{ width: 60, flexShrink: 0 }}>
         <Badge variant={GEN_VARIANT[record.generation] ?? 'gray'}>{record.generation ?? '—'}</Badge>
@@ -226,12 +226,17 @@ export default function BreedingRecords() {
   const [strains, setStrains]         = useState([])
   const [actionError, setActionError] = useState(null)
 
-  function load() {
-    fetchBreedingRecords().then(setRecords).catch(() => setRecords([]))
+  async function loadRecords() {
+    try {
+      const data = await fetchBreedingRecords()
+      setRecords(data)
+    } catch {
+      setRecords([])
+    }
   }
 
   useEffect(() => {
-    load()
+    loadRecords()
     fetchStrains().then(setStrains).catch(() => {})
   }, [])
 
@@ -262,7 +267,7 @@ export default function BreedingRecords() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-      <BreedingForm strains={strains} onSaved={load} />
+      <BreedingForm strains={strains} onSaved={loadRecords} />
 
       {actionError && (
         <div style={{ fontSize: 12, color: '#f87171' }}>{actionError}</div>
