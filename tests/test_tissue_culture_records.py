@@ -1,0 +1,82 @@
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
+from api.main import app
+from api.dependencies import verify_token
+
+client = TestClient(app)
+
+STRAIN_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+RECORD_ID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+
+def mock_auth():
+    mock_client = MagicMock()
+    return {"user": MagicMock(), "client": mock_client}
+
+def mock_chain(data):
+    m = MagicMock()
+    m.execute.return_value.data = data
+    m.eq.return_value = m
+    m.is_.return_value = m
+    m.order.return_value = m
+    m.select.return_value = m
+    m.insert.return_value = m
+    m.update.return_value = m
+    return m
+
+def test_tissue_culture_requires_auth():
+    response = client.get("/tissue-culture-records")
+    assert response.status_code in (401, 403)
+
+def test_list_tissue_culture_records():
+    auth = mock_auth()
+    auth["client"].table.return_value = mock_chain([{"id": RECORD_ID}])
+    app.dependency_overrides[verify_token] = lambda: auth
+    try:
+        response = client.get("/tissue-culture-records")
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+    finally:
+        app.dependency_overrides.clear()
+
+@patch("api.main.supabase")
+def test_create_tissue_culture_record(mock_supa):
+    auth = mock_auth()
+    auth["client"].table.return_value = mock_chain([{"id": STRAIN_ID}])
+    mock_supa.table.return_value = mock_chain([{"id": RECORD_ID}])
+    app.dependency_overrides[verify_token] = lambda: auth
+    try:
+        response = client.post("/tissue-culture-records", json={
+            "strain_id": STRAIN_ID,
+            "accession_number": "ACC-001",
+            "banking_date": "2025-01-01",
+            "culture_type": "meristem",
+        })
+        assert response.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
+
+def test_create_tissue_culture_strain_not_found():
+    auth = mock_auth()
+    auth["client"].table.return_value = mock_chain([])
+    app.dependency_overrides[verify_token] = lambda: auth
+    try:
+        response = client.post("/tissue-culture-records", json={
+            "strain_id": STRAIN_ID,
+            "accession_number": "ACC-001",
+            "banking_date": "2025-01-01",
+            "culture_type": "meristem",
+        })
+        assert response.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
+
+def test_delete_tissue_culture_not_found():
+    auth = mock_auth()
+    auth["client"].table.return_value = mock_chain([])
+    app.dependency_overrides[verify_token] = lambda: auth
+    try:
+        response = client.delete(f"/tissue-culture-records/{RECORD_ID}")
+        assert response.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
