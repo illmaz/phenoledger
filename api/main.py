@@ -5,6 +5,7 @@ import tempfile
 import logging
 import hashlib
 from typing import Optional, Literal
+from pydantic import model_validator
 from pydantic import BaseModel, Field
 from fastapi import FastAPI, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -107,13 +108,24 @@ class TrialEventIn(BaseModel):
     event_date: date
     event_type: Literal["pesticide", "nutrient", "anomaly", "observation"]
     product_name: Optional[str] = Field(None, max_length=200)
-    quantity: Optional[str] = Field(None, max_length=50)
+    quantity: Optional[float] = Field(None, ge=0)
     unit: Optional[str] = Field(None, max_length=20)
     notes: Optional[str] = Field(None, max_length=500)
 
 
 class TrialUpdate(BaseModel):
     location_name: Optional[str] = Field(None, max_length=200)
+    @model_validator(mode='after')
+    def validate_ranges(self):
+        if self.start_date and self.harvest_date and self.harvest_date < self.start_date:
+            raise ValueError("harvest_date cannot be before start_date")
+        if self.temperature_min is not None and self.temperature_max is not None:
+            if self.temperature_min > self.temperature_max:
+                raise ValueError("temperature_min cannot exceed temperature_max")
+        if self.humidity_min is not None and self.humidity_max is not None:
+            if self.humidity_min > self.humidity_max:
+                raise ValueError("humidity_min cannot exceed humidity_max")
+        return self
     latitude: Optional[float] = Field(None, ge=-90, le=90)
     longitude: Optional[float] = Field(None, ge=-180, le=180)
     grow_type: Optional[Literal["indoor", "outdoor", "greenhouse"]] = None
@@ -131,8 +143,23 @@ class TrialUpdate(BaseModel):
     notes: Optional[str] = Field(None, max_length=500)
 
 
+class COALinkIn(BaseModel):
+    report_id: str
+
+
 class TrialIn(BaseModel):
     strain_id: Optional[str] = None
+    @model_validator(mode='after')
+    def validate_ranges(self):
+        if self.start_date and self.harvest_date and self.harvest_date < self.start_date:
+            raise ValueError("harvest_date cannot be before start_date")
+        if self.temperature_min is not None and self.temperature_max is not None:
+            if self.temperature_min > self.temperature_max:
+                raise ValueError("temperature_min cannot exceed temperature_max")
+        if self.humidity_min is not None and self.humidity_max is not None:
+            if self.humidity_min > self.humidity_max:
+                raise ValueError("humidity_min cannot exceed humidity_max")
+        return self
     mother_plant_id: Optional[str] = None
     location_name: Optional[str] = Field(None, max_length=200)
     latitude: Optional[float] = Field(None, ge=-90, le=90)
@@ -142,8 +169,8 @@ class TrialIn(BaseModel):
     harvest_date: Optional[date] = None
     grow_medium: Optional[str] = Field(None, max_length=100)
     light_cycle: Optional[str] = Field(None, max_length=50)
-    temperature_min: Optional[float] = None
-    temperature_max: Optional[float] = None
+    temperature_min: Optional[float] = Field(None, ge=-10, le=60)
+    temperature_max: Optional[float] = Field(None, ge=-10, le=60)
     humidity_min: Optional[float] = Field(None, ge=0, le=100)
     humidity_max: Optional[float] = Field(None, ge=0, le=100)
     wet_weight_g: Optional[float] = Field(None, ge=0)
@@ -975,6 +1002,22 @@ def list_trials(limit: int = 50, offset: int = 0, auth = Depends(verify_token)):
 
 @app.post("/trials")
 def create_trial(payload: TrialIn, current_user = Depends(verify_token)):
+    if payload.strain_id:
+        strain_check = supabase.table("strains") \
+            .select("id") \
+            .eq("id", payload.strain_id) \
+            .eq("farm_id", FARM_ID) \
+            .execute()
+        if not strain_check.data:
+            raise HTTPException(status_code=404, detail="strain not found")
+    if payload.mother_plant_id:
+        mp_check = supabase.table("mother_plants") \
+            .select("id") \
+            .eq("id", payload.mother_plant_id) \
+            .eq("farm_id", FARM_ID) \
+            .execute()
+        if not mp_check.data:
+            raise HTTPException(status_code=404, detail="mother plant not found")
     row = supabase.table("trials").insert({
         "farm_id": FARM_ID,
         "strain_id": payload.strain_id,
@@ -1002,7 +1045,8 @@ def create_trial(payload: TrialIn, current_user = Depends(verify_token)):
     return row_data[0]
 
 @app.post("/trials/{trial_id}/coa")
-def link_trial_coa(trial_id: str, report_id: str, current_user = Depends(verify_token)):
+def link_trial_coa(trial_id: str, payload: COALinkIn, current_user = Depends(verify_token)):
+    report_id = payload.report_id
     trial_check = supabase.table("trials") \
         .select("id") \
         .eq("id", trial_id) \
@@ -1010,6 +1054,20 @@ def link_trial_coa(trial_id: str, report_id: str, current_user = Depends(verify_
         .execute()
     if not trial_check.data:
         raise HTTPException(status_code=404, detail="trial not found")
+    report_check = supabase.table("coa_reports") \
+        .select("id") \
+        .eq("id", report_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
+    if not report_check.data:
+        raise HTTPException(status_code=404, detail="report not found")
+    existing_link = supabase.table("trial_coa_links") \
+        .select("id") \
+        .eq("trial_id", trial_id) \
+        .eq("report_id", report_id) \
+        .execute()
+    if existing_link.data:
+        raise HTTPException(status_code=409, detail="COA already linked to this trial")
     row = supabase.table("trial_coa_links").insert({
         "trial_id": trial_id,
         "report_id": report_id,
@@ -1019,6 +1077,88 @@ def link_trial_coa(trial_id: str, report_id: str, current_user = Depends(verify_
         raise HTTPException(status_code=500, detail="link creation failed")
     return row_data[0]
 
+@app.get("/trials/analytics")
+def trials_analytics(auth = Depends(verify_token)):
+    rows = auth["client"].table("trials") \
+        .select("*, strains(name), trial_coa_links(report_id, coa_reports(sample_name, report_date, cannabinoid_results(compound_name, value_pct)))") \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .execute()
+    data: list[dict] = rows.data or []
+    result = []
+    for trial in data:
+        strain_name = (trial.get("strains") or {}).get("name", "Unknown")
+        thca = None
+        links = trial.get("trial_coa_links") or []
+        found_thca = False
+        for link in links:
+            if found_thca:
+                break
+            report = link.get("coa_reports") or {}
+            for compound in (report.get("cannabinoid_results") or []):
+                if compound["compound_name"] == "THCA" and compound["value_pct"]:
+                    thca = float(compound["value_pct"])
+                    found_thca = True
+                    break
+        result.append({
+            "trial_id": trial["id"],
+            "strain": strain_name,
+            "grow_type": trial.get("grow_type"),
+            "location": trial.get("location_name"),
+            "dry_weight_g": trial.get("dry_weight_g"),
+            "plant_count": trial.get("plant_count"),
+            "thca": thca,
+            "harvest_date": trial.get("harvest_date"),
+        })
+    return result
+@app.get("/trials/analytics/summary")
+def trials_analytics_summary(auth = Depends(verify_token)):
+    rows = auth["client"].table("trials") \
+        .select("grow_type, dry_weight_g, wet_weight_g, plant_count, strains(name), trial_coa_links(coa_reports(cannabinoid_results(compound_name, value_pct)))") \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
+        .execute()
+    data: list[dict] = rows.data or []
+    by_grow_type: dict = {}
+    for trial in data:
+        gt = trial.get("grow_type") or "unknown"
+        if gt not in by_grow_type:
+            by_grow_type[gt] = {"thca_vals": [], "yield_per_plant": [], "efficiency_vals": [], "count": 0}
+        by_grow_type[gt]["count"] += 1
+        links = trial.get("trial_coa_links") or []
+        trial_thca = None
+        for link in links:
+            if trial_thca is not None:
+                break
+            report = link.get("coa_reports") or {}
+            for c in (report.get("cannabinoid_results") or []):
+                if c["compound_name"] == "THCA" and c["value_pct"]:
+                    trial_thca = float(c["value_pct"])
+                    break
+        if trial_thca is not None:
+            by_grow_type[gt]["thca_vals"].append(trial_thca)
+        if trial.get("dry_weight_g") and trial.get("plant_count"):
+            by_grow_type[gt]["yield_per_plant"].append(
+                float(trial["dry_weight_g"]) / int(trial["plant_count"])
+            )
+        if trial.get("dry_weight_g") and trial.get("wet_weight_g") and float(trial["wet_weight_g"]) > 0:
+            if "efficiency_vals" not in by_grow_type[gt]:
+                by_grow_type[gt]["efficiency_vals"] = []
+            by_grow_type[gt]["efficiency_vals"].append(
+                float(trial["dry_weight_g"]) / float(trial["wet_weight_g"]) * 100
+            )
+    summary = []
+    for gt, vals in by_grow_type.items():
+        thca_list = vals["thca_vals"]
+        yield_list = vals["yield_per_plant"]
+        summary.append({
+            "grow_type": gt,
+            "trial_count": vals["count"],
+            "avg_thca": round(sum(thca_list) / len(thca_list), 2) if thca_list else None,
+            "avg_yield_per_plant_g": round(sum(yield_list) / len(yield_list), 1) if yield_list else None,
+            "avg_yield_efficiency_pct": round(sum(vals.get("efficiency_vals", [])) / len(vals.get("efficiency_vals", [])), 1) if vals.get("efficiency_vals") else None,
+        })
+    return summary
 @app.get("/trials/{trial_id}")
 def get_trial(trial_id: str, auth = Depends(verify_token)):
     row = auth["client"].table("trials") \
@@ -1033,13 +1173,19 @@ def get_trial(trial_id: str, auth = Depends(verify_token)):
 
 @app.delete("/trials/{trial_id}")
 def delete_trial(trial_id: str, current_user = Depends(verify_token)):
+    now = datetime.now(timezone.utc).isoformat()
     result = supabase.table("trials") \
-        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .update({"deleted_at": now}) \
         .eq("id", trial_id) \
         .eq("farm_id", FARM_ID) \
         .execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="trial not found")
+    supabase.table("trial_events") \
+        .update({"deleted_at": now}) \
+        .eq("trial_id", trial_id) \
+        .eq("farm_id", FARM_ID) \
+        .execute()
     return {"deleted": trial_id}
 
 @app.put("/trials/{trial_id}")
@@ -1069,11 +1215,13 @@ def unlink_trial_coa(trial_id: str, report_id: str, current_user = Depends(verif
         .execute()
     if not trial_check.data:
         raise HTTPException(status_code=404, detail="trial not found")
-    supabase.table("trial_coa_links") \
+    result = supabase.table("trial_coa_links") \
         .delete() \
         .eq("trial_id", trial_id) \
         .eq("report_id", report_id) \
         .execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="link not found")
     return {"unlinked": report_id}
 
 @app.get("/trials/analytics")
@@ -1089,11 +1237,15 @@ def trials_analytics(auth = Depends(verify_token)):
         strain_name = (trial.get("strains") or {}).get("name", "Unknown")
         thca = None
         links = trial.get("trial_coa_links") or []
+        found_thca = False
         for link in links:
+            if found_thca:
+                break
             report = link.get("coa_reports") or {}
             for compound in (report.get("cannabinoid_results") or []):
                 if compound["compound_name"] == "THCA" and compound["value_pct"]:
                     thca = float(compound["value_pct"])
+                    found_thca = True
                     break
         result.append({
             "trial_id": trial["id"],
@@ -1110,7 +1262,7 @@ def trials_analytics(auth = Depends(verify_token)):
 @app.get("/trials/analytics/summary")
 def trials_analytics_summary(auth = Depends(verify_token)):
     rows = auth["client"].table("trials") \
-        .select("grow_type, dry_weight_g, plant_count, strains(name), trial_coa_links(coa_reports(cannabinoid_results(compound_name, value_pct)))") \
+        .select("grow_type, dry_weight_g, wet_weight_g, plant_count, strains(name), trial_coa_links(coa_reports(cannabinoid_results(compound_name, value_pct)))") \
         .eq("farm_id", FARM_ID) \
         .is_("deleted_at", "null") \
         .execute()
@@ -1119,13 +1271,20 @@ def trials_analytics_summary(auth = Depends(verify_token)):
     for trial in data:
         gt = trial.get("grow_type") or "unknown"
         if gt not in by_grow_type:
-            by_grow_type[gt] = {"thca_vals": [], "yield_per_plant": []}
+            by_grow_type[gt] = {"thca_vals": [], "yield_per_plant": [], "efficiency_vals": [], "count": 0}
+        by_grow_type[gt]["count"] += 1
         links = trial.get("trial_coa_links") or []
+        trial_thca = None
         for link in links:
+            if trial_thca is not None:
+                break
             report = link.get("coa_reports") or {}
             for c in (report.get("cannabinoid_results") or []):
                 if c["compound_name"] == "THCA" and c["value_pct"]:
-                    by_grow_type[gt]["thca_vals"].append(float(c["value_pct"]))
+                    trial_thca = float(c["value_pct"])
+                    break
+        if trial_thca is not None:
+            by_grow_type[gt]["thca_vals"].append(trial_thca)
         if trial.get("dry_weight_g") and trial.get("plant_count"):
             by_grow_type[gt]["yield_per_plant"].append(
                 float(trial["dry_weight_g"]) / int(trial["plant_count"])
@@ -1142,7 +1301,7 @@ def trials_analytics_summary(auth = Depends(verify_token)):
         yield_list = vals["yield_per_plant"]
         summary.append({
             "grow_type": gt,
-            "trial_count": len(data),
+            "trial_count": vals["count"],
             "avg_thca": round(sum(thca_list) / len(thca_list), 2) if thca_list else None,
             "avg_yield_per_plant_g": round(sum(yield_list) / len(yield_list), 1) if yield_list else None,
             "avg_yield_efficiency_pct": round(sum(vals.get("efficiency_vals", [])) / len(vals.get("efficiency_vals", [])), 1) if vals.get("efficiency_vals") else None,
@@ -1163,6 +1322,8 @@ def list_trial_events(trial_id: str, auth = Depends(verify_token)):
     rows = auth["client"].table("trial_events") \
         .select("*") \
         .eq("trial_id", trial_id) \
+        .eq("farm_id", FARM_ID) \
+        .is_("deleted_at", "null") \
         .order("event_date", desc=False) \
         .execute()
     return rows.data
@@ -1182,7 +1343,7 @@ def create_trial_event(trial_id: str, payload: TrialEventIn, current_user = Depe
         "event_date": payload.event_date.isoformat(),
         "event_type": payload.event_type,
         "product_name": payload.product_name,
-        "quantity": payload.quantity,
+        "quantity": str(payload.quantity) if payload.quantity is not None else None,
         "unit": payload.unit,
         "notes": payload.notes,
     }).execute()

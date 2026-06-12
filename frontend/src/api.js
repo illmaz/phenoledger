@@ -203,7 +203,10 @@ export async function deleteStrain(strainName) {
 
 export async function fetchTrials() {
   const res = await apiFetch(`${BASE}/trials`, { headers: await authHeaders() })
-  if (!res.ok) throw new Error(`${res.status}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
   return res.json()
 }
 
@@ -225,6 +228,59 @@ export async function deleteTrial(id) {
     method: 'DELETE',
     headers: await authHeaders(),
   })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function fetchTrialDetail(id) {
+  const res = await apiFetch(`${BASE}/trials/${encodeURIComponent(id)}`, { headers: await authHeaders() })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function fetchTrialEvents(id) {
+  const res = await apiFetch(`${BASE}/trials/${encodeURIComponent(id)}/events`, { headers: await authHeaders() })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function createTrialEvent(id, payload) {
+  const res = await apiFetch(`${BASE}/trials/${encodeURIComponent(id)}/events`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function fetchTrialAnalyticsSummary() {
+  const res = await apiFetch(`${BASE}/trials/analytics/summary`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function linkTrialCOA(trialId, reportId) {
+  const res = await apiFetch(
+    `${BASE}/trials/${encodeURIComponent(trialId)}/coa`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+      body: JSON.stringify({ report_id: reportId }),
+    }
+  )
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.detail || body.message || res.status)
