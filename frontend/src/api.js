@@ -328,6 +328,74 @@ export async function deletePlantHealthScreening(id) {
   return res.json()
 }
 
+export async function fetchTissueCultureRecords() {
+  const res = await apiFetch(`${BASE}/tissue-culture-records`, { headers: await authHeaders() })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function createTissueCultureRecord(payload) {
+  const res = await apiFetch(`${BASE}/tissue-culture-records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function deleteTissueCultureRecord(id) {
+  const res = await apiFetch(`${BASE}/tissue-culture-records/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function fetchDUSTests() {
+  const res = await apiFetch(`${BASE}/dus-tests`, { headers: await authHeaders() })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function createDUSTest(payload) {
+  const res = await apiFetch(`${BASE}/dus-tests`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function deleteDUSTest(id) {
+  const res = await apiFetch(`${BASE}/dus-tests/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
 export async function fetchBreedingRecords() {
   const res = await apiFetch(`${BASE}/breeding-records`, { headers: await authHeaders() })
   if (!res.ok) {

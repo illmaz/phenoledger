@@ -12,6 +12,8 @@ import SeedLots from './components/screens/SeedLots'
 import TrialData from './components/screens/TrialData'
 import BreedingRecords from './components/screens/BreedingRecords'
 import PlantHealthScreenings from './components/screens/PlantHealthScreenings'
+import DUSTests from './components/screens/DUSTests'
+import TissueCultureRecords from './components/screens/TissueCultureRecords'
 import GACP from './components/screens/GACP'
 import ThaiFDA from './components/screens/ThaiFDA'
 import CannaVerify from './components/screens/CannaVerify'
@@ -28,6 +30,8 @@ const SCREENS = {
   'trials':        { bc: ['Local Trial Data', 'Thailand'],         Component: TrialData       },
   'gacp':              { bc: ['GACP Reports', 'Compliance'],           Component: GACP                  },
   'health-screenings': { bc: ['Health Screenings', 'Compliance'],      Component: PlantHealthScreenings },
+  'dus-tests':         { bc: ['DUS Testing', 'Compliance'],            Component: DUSTests              },
+  'tissue-culture':    { bc: ['Tissue Culture', 'Compliance'],         Component: TissueCultureRecords  },
   'thai-fda':      { bc: ['Thai FDA', 'Submissions'],              Component: ThaiFDA         },
   'cannaverify':   { bc: ['CannaVerify', 'Public Search'],         Component: CannaVerify     },
   'api':           { bc: ['API', 'Integrations'],                  Component: APIIntegrations },

@@ -140,7 +140,7 @@ function BreedingForm({ strains, onSaved }) {
           />
           {form.breeding_notes.length > 400 && (
             <div style={{ fontSize: 10, color: 'var(--text-3)', textAlign: 'right', marginTop: 2 }}>
-              {form.notes.length}/500
+              {form.breeding_notes.length}/500
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   LayoutDashboard, Dna, FlaskConical, GitBranch, GitMerge, Leaf, Sprout,
-  TestTube2, FileCheck2, Shield, Building2, Globe, Zap,
+  TestTube2, FileCheck2, Shield, Microscope, Building2, Globe, Zap,
 } from 'lucide-react'
 
 const PHASE_TAG = {
@@ -41,8 +41,10 @@ const NAV = [
     section: 'Phase 4 · Compliance',
     items: [
       { id: 'gacp',              label: 'GACP Reports',     Icon: FileCheck2, phase: 'p4' },
-      { id: 'health-screenings', label: 'Health Screenings', Icon: Shield,     phase: 'p4' },
-      { id: 'thai-fda',          label: 'Thai FDA',          Icon: Building2,  phase: 'p4' },
+      { id: 'health-screenings', label: 'Health Screenings', Icon: Shield,        phase: 'p4' },
+      { id: 'dus-tests',         label: 'DUS Testing',       Icon: FlaskConical, phase: 'p4' },
+      { id: 'tissue-culture',    label: 'Tissue Culture',    Icon: Microscope,   phase: 'p4' },
+      { id: 'thai-fda',          label: 'Thai FDA',           Icon: Building2,   phase: 'p4' },
     ],
   },
   {
