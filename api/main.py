@@ -1438,8 +1438,10 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
         .is_("deleted_at", "null") \
         .execute()
 
+    farm_row = auth["client"].table("farms").select("name").eq("id", FARM_ID).execute()
+    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
     pdf = render_gacp_batch_report(
-        farm_name="Irie Seeds",
+        farm_name=farm_name,
         strain_name=strain_name,
         seed_lots=seed_lots.data or [],
         mother_plants=mother_plants.data or [],

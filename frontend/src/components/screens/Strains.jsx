@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Search, LayoutGrid, List, Info, Trash2 } from 'lucide-react'
+import { ArrowLeft, Search, LayoutGrid, List, Info, Trash2, FileDown } from 'lucide-react'
 import { StatCard, Panel, Badge, HBar, Grid } from '../ui'
-import { fetchStrains, fetchStrainCannabinoids, fetchStrainTerpenes, fetchStrainBatches, deleteStrain } from '../../api'
+import { fetchStrains, fetchStrainCannabinoids, fetchStrainTerpenes, fetchStrainBatches, deleteStrain, downloadGACPReport } from '../../api'
 
 // ── constants ────────────────────────────────────────────────────────────────
 
@@ -600,6 +600,19 @@ function StrainDetail({ strain, thca, uploadCount, status, stability, onBack }) 
   const [terpenes, setTerpenes]         = useState(null)
   const [batches, setBatches]           = useState(null)
   const [tab, setTab]                   = useState('profiles')
+  const [gacpLoading, setGacpLoading]   = useState(false)
+  const [gacpError, setGacpError]       = useState(null)
+
+  async function handleDownloadGACP() {
+    setGacpLoading(true); setGacpError(null)
+    try {
+      await downloadGACPReport(strain)
+    } catch (err) {
+      setGacpError(err.message)
+    } finally {
+      setGacpLoading(false)
+    }
+  }
 
   useEffect(() => {
     setCannabinoids(null)
@@ -655,6 +668,25 @@ function StrainDetail({ strain, thca, uploadCount, status, stability, onBack }) 
         <span style={{ color: 'var(--text-3)', fontSize: 12 }}>·</span>
         <span style={{ fontSize: 12, color: 'var(--text)' }}>{strain}</span>
         {status && <StatusBadgeWithTooltip status={status} />}
+        <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <button
+            onClick={handleDownloadGACP}
+            disabled={gacpLoading}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px', fontSize: 11, fontWeight: 500,
+              border: '0.5px solid var(--border)', borderRadius: 6,
+              background: 'transparent', color: gacpLoading ? 'var(--text-3)' : 'var(--text-2)',
+              cursor: gacpLoading ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <FileDown size={12} />
+            {gacpLoading ? 'Generating…' : 'GACP Report'}
+          </button>
+          {gacpError && (
+            <span style={{ fontSize: 11, color: '#f87171' }}>{gacpError}</span>
+          )}
+        </div>
       </div>
 
       {/* Stat cards */}

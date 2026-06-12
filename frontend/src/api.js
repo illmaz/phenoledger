@@ -272,6 +272,23 @@ export async function fetchTrialAnalyticsSummary() {
   return res.json()
 }
 
+export async function downloadGACPReport(strainName) {
+  const res = await apiFetch(`${BASE}/reports/gacp/${encodeURIComponent(strainName)}`, {
+    headers: { ...await authHeaders() }
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || String(res.status))
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `GACP_${strainName.replace(/ /g, '_')}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export async function linkTrialCOA(trialId, reportId) {
   const res = await apiFetch(
     `${BASE}/trials/${encodeURIComponent(trialId)}/coa`,
