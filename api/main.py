@@ -229,6 +229,28 @@ class PlantHealthScreeningUpdate(BaseModel):
     testing_lab: Optional[str] = Field(None, max_length=200)
     notes: Optional[str] = Field(None, max_length=1000)
 
+class DUSTestIn(BaseModel):
+    strain_id: str
+    testing_body: Optional[str] = Field(None, max_length=200)
+    test_date: date
+    status: Literal["pending","in_progress","passed","failed"] = "pending"
+    distinctness_score: Optional[float] = Field(None, ge=0, le=100)
+    uniformity_score: Optional[float] = Field(None, ge=0, le=100)
+    stability_score: Optional[float] = Field(None, ge=0, le=100)
+    overall_result: Optional[Literal["pass","fail","pending"]] = None
+    registration_number: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class DUSTestUpdate(BaseModel):
+    testing_body: Optional[str] = Field(None, max_length=200)
+    status: Optional[Literal["pending","in_progress","passed","failed"]] = None
+    distinctness_score: Optional[float] = Field(None, ge=0, le=100)
+    uniformity_score: Optional[float] = Field(None, ge=0, le=100)
+    stability_score: Optional[float] = Field(None, ge=0, le=100)
+    overall_result: Optional[Literal["pass","fail","pending"]] = None
+    registration_number: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=1000)
+
 
 app = FastAPI()
 
@@ -1783,3 +1805,51 @@ def delete_plant_health_screening(screening_id: str, auth = Depends(verify_token
     from datetime import datetime
     supabase.table("plant_health_screenings")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", screening_id)         .execute()
     return {"deleted": screening_id}
+
+
+# ── Phase 4 Extended: DUS Testing ─────────────────────────────────────────────
+
+@app.get("/dus-tests")
+def list_dus_tests(strain_id: Optional[str] = None, auth = Depends(verify_token)):
+    q = auth["client"].table("dus_tests")         .select("*, strains(name)")         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .order("test_date", desc=True)
+    if strain_id:
+        q = q.eq("strain_id", strain_id)
+    return q.execute().data or []
+
+@app.post("/dus-tests")
+def create_dus_test(payload: DUSTestIn, auth = Depends(verify_token)):
+    check = auth["client"].table("strains")         .select("id")         .eq("id", payload.strain_id)         .eq("farm_id", FARM_ID)         .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="strain not found")
+    row = supabase.table("dus_tests").insert({
+        "farm_id": FARM_ID,
+        "strain_id": payload.strain_id,
+        "testing_body": payload.testing_body,
+        "test_date": str(payload.test_date),
+        "status": payload.status,
+        "distinctness_score": payload.distinctness_score,
+        "uniformity_score": payload.uniformity_score,
+        "stability_score": payload.stability_score,
+        "overall_result": payload.overall_result,
+        "registration_number": payload.registration_number,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.patch("/dus-tests/{test_id}")
+def update_dus_test(test_id: str, payload: DUSTestUpdate, auth = Depends(verify_token)):
+    check = auth["client"].table("dus_tests")         .select("id")         .eq("id", test_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="DUS test not found")
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    row = supabase.table("dus_tests").update(updates)         .eq("id", test_id)         .execute()
+    return row.data[0]
+
+@app.delete("/dus-tests/{test_id}")
+def delete_dus_test(test_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("dus_tests")         .select("id")         .eq("id", test_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="DUS test not found")
+    from datetime import datetime
+    supabase.table("dus_tests")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", test_id)         .execute()
+    return {"deleted": test_id}

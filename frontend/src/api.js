@@ -294,6 +294,40 @@ export async function downloadGACPReport(strainName) {
   URL.revokeObjectURL(url)
 }
 
+export async function fetchPlantHealthScreenings() {
+  const res = await apiFetch(`${BASE}/plant-health-screenings`, { headers: await authHeaders() })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function createPlantHealthScreening(payload) {
+  const res = await apiFetch(`${BASE}/plant-health-screenings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
+export async function deletePlantHealthScreening(id) {
+  const res = await apiFetch(`${BASE}/plant-health-screenings/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || res.status)
+  }
+  return res.json()
+}
+
 export async function fetchBreedingRecords() {
   const res = await apiFetch(`${BASE}/breeding-records`, { headers: await authHeaders() })
   if (!res.ok) {
