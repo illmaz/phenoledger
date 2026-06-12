@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react'
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from 'recharts'
-import { StatCard, Panel, Badge, Row, Grid, TOOLTIP_STYLE, AXIS_TICK, GRID_COLOR } from '../ui'
+import { StatCard, Panel, Badge, Row, Grid } from '../ui'
 import { fetchOverview } from '../../api'
 
 function statusVariant(s) {
@@ -22,6 +19,13 @@ function alertVariant(status) {
   return status === 'drift' ? 'danger' : 'warn'
 }
 
+function stabilityColor(v) {
+  if (v == null) return 'var(--text-3)'
+  if (v >= 90) return '#4ade80'
+  if (v >= 75) return '#fbbf24'
+  return '#f87171'
+}
+
 export default function Overview({ refreshKey }) {
   const [overview, setOverview] = useState(null)
 
@@ -33,11 +37,13 @@ export default function Overview({ refreshKey }) {
   }, [refreshKey])
 
   const d = overview
-  const avgStability = d?.avg_stability ?? 0
-  const flaggedCount = d?.flagged_count ?? 0
-  const consistency  = d?.consistency    ?? []
+  const avgStability  = d?.avg_stability ?? 0
+  const flaggedCount  = d?.flagged_count ?? 0
+  const consistency   = d?.consistency    ?? []
   const recentUploads = d?.recent_uploads ?? []
-  const alerts       = d?.alerts         ?? []
+  const alerts        = d?.alerts         ?? []
+
+  const ranked = [...consistency].sort((a, b) => (a.stability ?? 101) - (b.stability ?? 101))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -69,24 +75,23 @@ export default function Overview({ refreshKey }) {
       <Grid cols={2} gap={10}>
         <Panel title="Fleet THC Consistency – all strains" titleRight={d ? `${consistency.length} strains` : ''} fullWidth>
           {d === null ? (
-            <div style={{ height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 12 }}>
-              Loading…
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px 0' }}>Loading…</div>
           ) : consistency.length === 0 ? (
-            <div style={{ height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 12 }}>
-              No data yet — upload a COA to see results
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', padding: '8px 0' }}>No data yet — upload a COA to see results</div>
           ) : (
-            <ResponsiveContainer width="100%" height={150}>
-              <BarChart data={consistency} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
-                <XAxis dataKey="strain" tick={AXIS_TICK} axisLine={false} tickLine={false} />
-                <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} tickFormatter={v => v + '%'} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} formatter={v => v.toFixed(2) + '%'} />
-                <Legend wrapperStyle={{ fontSize: 10, color: '#666' }} iconType="rect" iconSize={8} />
-                <Bar dataKey="thca" name="THCA %" fill="#4ade80" radius={[2,2,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            ranked.map((s, i) => (
+              <Row key={s.strain} last={i === ranked.length - 1}>
+                <span style={{ flex: 1, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                  {s.strain}
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: stabilityColor(s.stability), flexShrink: 0, width: 36, textAlign: 'right' }}>
+                  {s.stability != null ? s.stability.toFixed(1) : '—'}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0, width: 56, textAlign: 'right' }}>
+                  {s.thca != null ? s.thca.toFixed(2) + '%' : '—'}
+                </span>
+              </Row>
+            ))
           )}
         </Panel>
 

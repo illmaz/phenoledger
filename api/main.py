@@ -328,7 +328,7 @@ def overview(auth = Depends(verify_token)):
         })
 
     consistency = [
-        {"strain": r["strain_name"], "thca": round(float(r["avg_pct"] or 0), 2)}
+        {"strain": r["strain_name"], "thca": round(float(r["avg_pct"] or 0), 2), "stability": round(float(r["stability_score"] or 0))}
         for r in strains_data
     ]
 
@@ -562,7 +562,7 @@ def consistency(auth = Depends(verify_token)):
         .execute()
     data: list[dict] = rows.data  # type: ignore[assignment]
     return [
-        {"strain": r["strain_name"], "thca": round(float(r["avg_pct"] or 0), 2)}
+        {"strain": r["strain_name"], "thca": round(float(r["avg_pct"] or 0), 2), "stability": round(float(r["stability_score"] or 0))}
         for r in data
     ]
 
