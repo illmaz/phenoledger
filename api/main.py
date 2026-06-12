@@ -195,6 +195,22 @@ class PropagationIn(BaseModel):
     grow_type: Optional[Literal["indoor", "outdoor", "greenhouse"]] = None
     notes: Optional[str] = Field(None, max_length=500)
 
+class BreedingRecordIn(BaseModel):
+    result_strain_id: str
+    parent_strain_a_id: str
+    parent_strain_b_id: Optional[str] = None
+    generation: Literal["F1","F2","F3","F4","BX1","BX2","BX3","S1","IBL","Other"]
+    cross_date: Optional[date] = None
+    seed_count: Optional[int] = Field(None, ge=0)
+    success_rate: Optional[float] = Field(None, ge=0, le=100)
+    breeding_notes: Optional[str] = Field(None, max_length=1000)
+
+class BreedingRecordUpdate(BaseModel):
+    cross_date: Optional[date] = None
+    seed_count: Optional[int] = Field(None, ge=0)
+    success_rate: Optional[float] = Field(None, ge=0, le=100)
+    breeding_notes: Optional[str] = Field(None, max_length=1000)
+
 
 app = FastAPI()
 
@@ -1636,3 +1652,54 @@ def trial_performance_report(strain_name: str, auth = Depends(verify_token)):
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=TrialPerformance_{strain_name.replace(' ', '_')}.pdf"},
     )
+
+
+# ── Phase 2 Extended: Breeding Records ────────────────────────────────────────
+
+@app.get("/breeding-records")
+def list_breeding_records(auth = Depends(verify_token)):
+    rows = auth["client"].table("breeding_records")         .select("*, result_strain:strains!result_strain_id(name), parent_a:strains!parent_strain_a_id(name), parent_b:strains!parent_strain_b_id(name)")         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .order("created_at", desc=True)         .execute()
+    return rows.data or []
+
+@app.post("/breeding-records")
+def create_breeding_record(payload: BreedingRecordIn, auth = Depends(verify_token)):
+    for strain_id in [payload.result_strain_id, payload.parent_strain_a_id]:
+        check = auth["client"].table("strains")             .select("id")             .eq("id", strain_id)             .eq("farm_id", FARM_ID)             .execute()
+        if not check.data:
+            raise HTTPException(status_code=404, detail=f"strain {strain_id} not found")
+    if payload.parent_strain_b_id:
+        check = auth["client"].table("strains")             .select("id")             .eq("id", payload.parent_strain_b_id)             .eq("farm_id", FARM_ID)             .execute()
+        if not check.data:
+            raise HTTPException(status_code=404, detail=f"strain {payload.parent_strain_b_id} not found")
+    row = supabase.table("breeding_records").insert({
+        "farm_id": FARM_ID,
+        "result_strain_id": payload.result_strain_id,
+        "parent_strain_a_id": payload.parent_strain_a_id,
+        "parent_strain_b_id": payload.parent_strain_b_id,
+        "generation": payload.generation,
+        "cross_date": str(payload.cross_date) if payload.cross_date else None,
+        "seed_count": payload.seed_count,
+        "success_rate": payload.success_rate,
+        "breeding_notes": payload.breeding_notes,
+    }).execute()
+    return row.data[0]
+
+@app.patch("/breeding-records/{record_id}")
+def update_breeding_record(record_id: str, payload: BreedingRecordUpdate, auth = Depends(verify_token)):
+    check = auth["client"].table("breeding_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="breeding record not found")
+    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    if "cross_date" in updates and updates["cross_date"]:
+        updates["cross_date"] = str(updates["cross_date"])
+    row = supabase.table("breeding_records").update(updates)         .eq("id", record_id)         .execute()
+    return row.data[0]
+
+@app.delete("/breeding-records/{record_id}")
+def delete_breeding_record(record_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("breeding_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", FARM_ID)         .is_("deleted_at", "null")         .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="breeding record not found")
+    from datetime import datetime
+    supabase.table("breeding_records")         .update({"deleted_at": datetime.utcnow().isoformat()})         .eq("id", record_id)         .execute()
+    return {"deleted": record_id}

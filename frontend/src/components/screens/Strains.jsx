@@ -45,6 +45,27 @@ const STATUS_TOOLTIP = {
   drift:     'Over 15% variation, investigate',
 }
 
+const CHEMOTYPE_STYLE = {
+  'Type I':       { bg: 'rgba(251,191,36,0.15)',  color: '#fbbf24' },
+  'Type II':      { bg: 'rgba(96,165,250,0.15)',  color: '#60a5fa' },
+  'Type III':     { bg: 'rgba(74,222,128,0.15)',  color: '#4ade80' },
+  'Type IV':      { bg: 'rgba(167,139,250,0.15)', color: '#a78bfa' },
+  'Unclassified': { bg: 'rgba(255,255,255,0.07)', color: '#888888' },
+}
+
+function ChemotypeBadge({ chemotype }) {
+  if (!chemotype) return null
+  const s = CHEMOTYPE_STYLE[chemotype] ?? CHEMOTYPE_STYLE['Unclassified']
+  return (
+    <span style={{
+      fontSize: 10, padding: '2px 7px', borderRadius: 3, fontWeight: 600,
+      background: s.bg, color: s.color, whiteSpace: 'nowrap',
+    }}>
+      {chemotype}
+    </span>
+  )
+}
+
 const COMPOUND_COLOR = {
   THCA: '#4ade80', THC: '#4ade80', 'D9-THC': '#4ade80',
   CBD: '#60a5fa', CBDA: '#60a5fa',
@@ -150,7 +171,7 @@ function StatusBadgeWithTooltip({ status }) {
 
 // ── StrainCard (grid view) ───────────────────────────────────────────────────
 
-function StrainCard({ strain, thca, status, stability, onClick, onDelete }) {
+function StrainCard({ strain, thca, status, stability, chemotype, onClick, onDelete }) {
   const [hovered, setHovered] = useState(false)
   const barWidth = thca != null ? Math.min((thca / 35) * 100, 100) : 0
 
@@ -191,11 +212,14 @@ function StrainCard({ strain, thca, status, stability, onClick, onDelete }) {
       <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
         <div style={{ height: '100%', width: `${barWidth}%`, background: '#4ade80', borderRadius: 3 }} />
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, fontSize: 10 }}>
         <span style={{ color: 'var(--text-3)' }}>Batch Stability</span>
-        <span style={{ color: STATUS_DOT[status] ?? 'var(--text-2)', fontWeight: 500 }}>
-          {stability != null ? `${stability}/100` : '—'}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <ChemotypeBadge chemotype={chemotype} />
+          <span style={{ color: STATUS_DOT[status] ?? 'var(--text-2)', fontWeight: 500 }}>
+            {stability != null ? `${stability}/100` : '—'}
+          </span>
+        </div>
       </div>
       {hovered && (
         <button
@@ -217,7 +241,7 @@ function StrainCard({ strain, thca, status, stability, onClick, onDelete }) {
 
 // ── StrainRow (list view) ────────────────────────────────────────────────────
 
-function StrainRow({ strain, thca, upload_count, status, stability, last, onClick, onDelete }) {
+function StrainRow({ strain, thca, upload_count, status, stability, chemotype, last, onClick, onDelete }) {
   const [hovered, setHovered] = useState(false)
 
   async function handleDelete(e) {
@@ -252,7 +276,8 @@ function StrainRow({ strain, thca, upload_count, status, stability, last, onClic
       <span style={{ fontSize: 11, color: STATUS_DOT[status] ?? 'var(--text-3)', width: 52, textAlign: 'right', flexShrink: 0, fontWeight: 500 }}>
         {stability != null ? `${stability}/100` : '—'}
       </span>
-      <div style={{ width: 110, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+      <div style={{ width: 160, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <ChemotypeBadge chemotype={chemotype} />
         <StatusBadgeWithTooltip status={status} />
       </div>
       <div style={{ width: 24, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
@@ -447,6 +472,7 @@ function StrainList({ strains, onSelect, onDelete }) {
               thca={s.thca}
               status={s.status}
               stability={s.stability}
+              chemotype={s.chemotype}
               onClick={() => onSelect(s)}
               onDelete={onDelete}
             />
@@ -462,6 +488,7 @@ function StrainList({ strains, onSelect, onDelete }) {
               upload_count={s.upload_count}
               status={s.status}
               stability={s.stability}
+              chemotype={s.chemotype}
               last={i === filtered.length - 1}
               onClick={() => onSelect(s)}
               onDelete={onDelete}
@@ -595,7 +622,7 @@ function BatchTable({ batches }) {
 
 // ── StrainDetail ─────────────────────────────────────────────────────────────
 
-function StrainDetail({ strain, thca, uploadCount, status, stability, onBack }) {
+function StrainDetail({ strain, thca, uploadCount, status, stability, chemotype, onBack }) {
   const [cannabinoids, setCannabinoids] = useState(null)
   const [terpenes, setTerpenes]         = useState(null)
   const [batches, setBatches]           = useState(null)
@@ -668,6 +695,7 @@ function StrainDetail({ strain, thca, uploadCount, status, stability, onBack }) 
         <span style={{ color: 'var(--text-3)', fontSize: 12 }}>·</span>
         <span style={{ fontSize: 12, color: 'var(--text)' }}>{strain}</span>
         {status && <StatusBadgeWithTooltip status={status} />}
+        {chemotype && <ChemotypeBadge chemotype={chemotype} />}
         <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <button
             onClick={handleDownloadGACP}
@@ -759,6 +787,7 @@ export default function Strains({ refreshKey }) {
         uploadCount={selected.upload_count}
         status={selected.status}
         stability={selected.stability}
+        chemotype={selected.chemotype}
         onBack={() => setSelected(null)}
       />
     )
