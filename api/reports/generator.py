@@ -27,3 +27,22 @@ def render_gacp_batch_report(
         generated_date=date.today().strftime("%d %b %Y"),
     )
     return HTML(string=html_content).write_pdf()
+
+
+def render_strain_performance_report(
+    farm_name: str,
+    strain_name: str,
+    compounds: list[dict],
+    batches: list[dict],
+    terpenes: list[dict],
+) -> bytes:
+    template = _jinja_env.get_template("strain_performance.html")
+    html_content = template.render(
+        farm_name=farm_name,
+        strain_name=strain_name,
+        compounds=compounds,
+        batches=batches,
+        terpenes=terpenes,
+        generated_date=date.today().strftime("%d %b %Y"),
+    )
+    return HTML(string=html_content).write_pdf()

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 20mm 15mm; }
+  body { font-family: Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+  .header { border-bottom: 3px solid #2d7a4f; padding-bottom: 8px; margin-bottom: 16px; }
+  .header h1 { font-size: 18pt; color: #2d7a4f; margin: 0 0 4px 0; }
+  .header .subtitle { font-size: 10pt; color: #555; }
+  .meta { display: flex; gap: 40px; margin-bottom: 20px; font-size: 9pt; color: #555; }
+  h2 { font-size: 12pt; color: #2d7a4f; border-bottom: 1px solid #d0e8d8; padding-bottom: 4px; margin: 20px 0 10px 0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 9pt; }
+  th { background: #2d7a4f; color: white; padding: 6px 8px; text-align: left; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e8f0eb; }
+  tr:nth-child(even) td { background: #f5faf7; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: bold; }
+  .badge-green { background: #d0e8d8; color: #1a5c34; }
+  .badge-yellow { background: #fdf6d0; color: #7a6a1a; }
+  .badge-red { background: #fde8e8; color: #7a2d2d; }
+  .stability-bar { height: 8px; background: #e0e0e0; border-radius: 4px; margin-top: 2px; }
+  .stability-fill { height: 100%; border-radius: 4px; background: #2d7a4f; }
+  .footer { position: fixed; bottom: 0; left: 0; right: 0; font-size: 8pt; color: #aaa; text-align: center; padding: 4px; border-top: 1px solid #eee; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Strain Performance Report</h1>
+  <div class="subtitle">PhenoLedger — Cannabis Certificate of Analysis Intelligence Platform</div>
+</div>
+
+<div class="meta">
+  <span><strong>Farm:</strong> {{ farm_name }}</span>
+  <span><strong>Strain:</strong> {{ strain_name }}</span>
+  <span><strong>Generated:</strong> {{ generated_date }}</span>
+</div>
+
+<h2>1. Compound Consistency</h2>
+{% if compounds %}
+<table>
+  <tr><th>Compound</th><th>Avg %</th><th>CV %</th><th>Stability Score</th><th>Status</th></tr>
+  {% for c in compounds %}
+  <tr>
+    <td>{{ c.compound_name }}</td>
+    <td>{{ c.avg_pct }}</td>
+    <td>{{ c.cv_pct }}</td>
+    <td>
+      <div>{{ c.stability_score }}</div>
+      <div class="stability-bar"><div class="stability-fill" style="width:{{ c.stability_score }}%"></div></div>
+    </td>
+    <td>
+      {% if c.status == "stable" %}<span class="badge badge-green">Stable</span>
+      {% elif c.status == "watch" %}<span class="badge badge-yellow">Watch</span>
+      {% else %}<span class="badge badge-red">Drift</span>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#888">No consistency data found for this strain.</p>
+{% endif %}
+
+<h2>2. Batch History</h2>
+{% if batches %}
+<table>
+  <tr><th>Batch</th><th>Lab</th><th>Date</th><th>THCA %</th><th>CBD %</th><th>CBG %</th><th>Total THC %</th></tr>
+  {% for b in batches %}
+  <tr>
+    <td>{{ b.sample_name or "—" }}</td>
+    <td>{{ b.lab_name or "—" }}</td>
+    <td>{{ b.report_date or "—" }}</td>
+    <td>{{ b.thca or "—" }}</td>
+    <td>{{ b.cbd or "—" }}</td>
+    <td>{{ b.cbg or "—" }}</td>
+    <td>{{ b.total_thc or "—" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#888">No batch records found for this strain.</p>
+{% endif %}
+
+<h2>3. Terpene Profile</h2>
+{% if terpenes %}
+<table>
+  <tr><th>Terpene</th><th>Avg %</th><th>Batches Detected</th></tr>
+  {% for t in terpenes %}
+  <tr>
+    <td>{{ t.compound_name }}</td>
+    <td>{{ t.avg_pct }}</td>
+    <td>{{ t.batch_count }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#888">No terpene data found for this strain.</p>
+{% endif %}
+
+<div class="footer">
+  PhenoLedger Strain Performance Report · Generated {{ generated_date }} · Confidential
+</div>
+
+</body>
+</html>

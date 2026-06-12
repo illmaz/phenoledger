@@ -1454,3 +1454,84 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=GACP_{strain_name.replace(' ', '_')}.pdf"}
     )
+
+
+@app.get("/reports/strain-performance/{strain_name}")
+def strain_performance_report(strain_name: str, auth = Depends(verify_token)):
+    from fastapi.responses import Response
+    from api.reports.generator import render_strain_performance_report
+
+    strain_row = auth["client"].table("strains")         .select("id")         .eq("farm_id", FARM_ID)         .eq("name", strain_name)         .is_("deleted_at", "null")         .execute()
+    if not strain_row.data:
+        raise HTTPException(status_code=404, detail="strain not found")
+    strain_id = strain_row.data[0]["id"]
+
+    farm_row = auth["client"].table("farms").select("name").eq("id", FARM_ID).execute()
+    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+
+    compounds_raw = auth["client"].table("strain_consistency")         .select("compound_name, avg_pct, cv_pct, stability_score, status")         .eq("farm_id", FARM_ID)         .eq("strain_name", strain_name)         .execute()
+    compounds = [
+        {
+            "compound_name": r["compound_name"],
+            "avg_pct": round(float(r["avg_pct"] or 0), 2),
+            "cv_pct": round(float(r["cv_pct"] or 0), 1),
+            "stability_score": round(float(r["stability_score"] or 0)),
+            "status": r["status"],
+        }
+        for r in (compounds_raw.data or [])
+    ]
+
+    report_ids = _get_strain_report_ids(strain_name, auth["client"])
+    batches = []
+    if report_ids:
+        reports = auth["client"].table("coa_reports")             .select("id, sample_name, lab_name, report_date")             .in_("id", report_ids)             .order("report_date", desc=False)             .execute()
+        cann = auth["client"].table("cannabinoid_results")             .select("report_id, compound_name, value_pct")             .in_("report_id", report_ids)             .in_("compound_name", ["THCA", "CBD", "CBG", "D9-THC"])             .execute()
+        cann_by_report: dict = {}
+        for c in (cann.data or []):
+            cann_by_report.setdefault(c["report_id"], {})[c["compound_name"]] = c["value_pct"]
+        for r in (reports.data or []):
+            compounds_row = cann_by_report.get(r["id"], {})
+            thca = compounds_row.get("THCA")
+            d9 = compounds_row.get("D9-THC", 0) or 0
+            total_thc = round(float(thca) * 0.877 + float(d9), 2) if thca else None
+            batches.append({
+                "sample_name": r.get("sample_name"),
+                "lab_name": LAB_DISPLAY.get(r.get("lab_name"), r.get("lab_name")),
+                "report_date": r.get("report_date"),
+                "thca": thca,
+                "cbd": compounds_row.get("CBD"),
+                "cbg": compounds_row.get("CBG"),
+                "total_thc": total_thc,
+            })
+
+    terpenes_raw: list[dict] = []
+    if report_ids:
+        terp_rows = auth["client"].table("terpene_results")             .select("compound_name, value_pct")             .in_("report_id", report_ids)             .not_.is_("value_pct", "null")             .gt("value_pct", 0)             .execute()
+        totals: dict[str, list] = {}
+        for r in (terp_rows.data or []):
+            totals.setdefault(r["compound_name"], []).append(float(r["value_pct"]))
+        terpenes_raw = sorted(
+            [
+                {
+                    "compound_name": k,
+                    "avg_pct": round(sum(v) / len(v), 4),
+                    "batch_count": len(v),
+                }
+                for k, v in totals.items()
+            ],
+            key=lambda x: x["avg_pct"],
+            reverse=True,
+        )[:5]
+
+    pdf = render_strain_performance_report(
+        farm_name=farm_name,
+        strain_name=strain_name,
+        compounds=compounds,
+        batches=batches,
+        terpenes=terpenes_raw,
+    )
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=StrainPerformance_{strain_name.replace(' ', '_')}.pdf"},
+    )

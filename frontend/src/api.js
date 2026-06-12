@@ -289,6 +289,57 @@ export async function downloadGACPReport(strainName) {
   URL.revokeObjectURL(url)
 }
 
+export async function downloadStrainPerformanceReport(strainName) {
+  const res = await apiFetch(`${BASE}/reports/strain-performance/${encodeURIComponent(strainName)}`, {
+    headers: { ...await authHeaders() }
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || String(res.status))
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `StrainPerformance_${strainName.replace(/ /g, '_')}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function downloadImportSummaryReport() {
+  const res = await apiFetch(`${BASE}/reports/import-summary`, {
+    headers: { ...await authHeaders() }
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || String(res.status))
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'ImportSummary.pdf'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function downloadTrialPerformanceReport(strainName) {
+  const res = await apiFetch(`${BASE}/reports/trial-performance/${encodeURIComponent(strainName)}`, {
+    headers: { ...await authHeaders() }
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || String(res.status))
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `TrialPerformance_${strainName.replace(/ /g, '_')}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export async function linkTrialCOA(trialId, reportId) {
   const res = await apiFetch(
     `${BASE}/trials/${encodeURIComponent(trialId)}/coa`,
