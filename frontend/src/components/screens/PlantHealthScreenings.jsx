@@ -182,13 +182,10 @@ function ScreeningForm({ motherPlants, uploads, onSaved }) {
 // ── ScreeningRow ──────────────────────────────────────────────────────────────
 
 function targetDisplay(record) {
-  const name = record.target_name
-    ?? record.target?.name
-    ?? record.target?.plant_code
-    ?? record.target_id
-    ?? '—'
-  const suffix = record.target_type === 'mother_plant' ? 'MP' : 'COA'
-  return { name, suffix }
+  if (record.mother_plant_id) {
+    return { name: record.mother_plants?.plant_code ?? '—', suffix: 'Mother Plant' }
+  }
+  return { name: record.coa_reports?.sample_name ?? '—', suffix: 'COA Batch' }
 }
 
 function ScreeningRow({ record, onDelete, last }) {

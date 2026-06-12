@@ -1664,7 +1664,7 @@ def update_breeding_record(record_id: str, payload: BreedingRecordUpdate, auth =
     check = auth["client"].table("breeding_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="breeding record not found")
-    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if "cross_date" in updates and updates["cross_date"]:
         updates["cross_date"] = str(updates["cross_date"])
     row = supabase.table("breeding_records").update(updates)         .eq("id", record_id)         .execute()
@@ -1725,7 +1725,7 @@ def update_plant_health_screening(
     check = auth["client"].table("plant_health_screenings")         .select("id")         .eq("id", screening_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="screening not found")
-    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     row = supabase.table("plant_health_screenings").update(updates)         .eq("id", screening_id)         .execute()
     return row.data[0]
 
@@ -1772,7 +1772,7 @@ def update_dus_test(test_id: str, payload: DUSTestUpdate, auth = Depends(verify_
     check = auth["client"].table("dus_tests")         .select("id")         .eq("id", test_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="DUS test not found")
-    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     row = supabase.table("dus_tests").update(updates)         .eq("id", test_id)         .execute()
     return row.data[0]
 
@@ -1817,7 +1817,7 @@ def update_tissue_culture_record(record_id: str, payload: TissueCultureRecordUpd
     check = auth["client"].table("tissue_culture_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="tissue culture record not found")
-    updates = {k: v for k, v in payload.model_dump().items() if v is not None}
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if "last_viability_check" in updates and updates["last_viability_check"]:
         updates["last_viability_check"] = str(updates["last_viability_check"])
     row = supabase.table("tissue_culture_records").update(updates)         .eq("id", record_id)         .execute()
