@@ -1675,7 +1675,7 @@ def delete_breeding_record(record_id: str, auth = Depends(verify_token)):
     check = auth["client"].table("breeding_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="breeding record not found")
-    supabase.table("breeding_records")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", record_id)         .execute()
+    supabase.table("breeding_records")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .execute()
     return {"deleted": record_id}
 
 
@@ -1734,7 +1734,7 @@ def delete_plant_health_screening(screening_id: str, auth = Depends(verify_token
     check = auth["client"].table("plant_health_screenings")         .select("id")         .eq("id", screening_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="screening not found")
-    supabase.table("plant_health_screenings")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", screening_id)         .execute()
+    supabase.table("plant_health_screenings")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", screening_id)         .eq("farm_id", auth["farm_id"])         .execute()
     return {"deleted": screening_id}
 
 
@@ -1781,7 +1781,7 @@ def delete_dus_test(test_id: str, auth = Depends(verify_token)):
     check = auth["client"].table("dus_tests")         .select("id")         .eq("id", test_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="DUS test not found")
-    supabase.table("dus_tests")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", test_id)         .execute()
+    supabase.table("dus_tests")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", test_id)         .eq("farm_id", auth["farm_id"])         .execute()
     return {"deleted": test_id}
 
 
@@ -1828,5 +1828,5 @@ def delete_tissue_culture_record(record_id: str, auth = Depends(verify_token)):
     check = auth["client"].table("tissue_culture_records")         .select("id")         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="tissue culture record not found")
-    supabase.table("tissue_culture_records")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", record_id)         .execute()
+    supabase.table("tissue_culture_records")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .execute()
     return {"deleted": record_id}

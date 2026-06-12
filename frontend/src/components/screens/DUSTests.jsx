@@ -174,7 +174,7 @@ function DUSForm({ strains, onSaved }) {
 function DUSRow({ record, onDelete, last }) {
   const [hovered, setHovered] = useState(false)
 
-  const strainName = record.strain?.name ?? record.strain_name ?? '—'
+  const strainName = record.strains?.name ?? '—'
 
   return (
     <div
