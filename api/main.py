@@ -1848,6 +1848,41 @@ def delete_breeding_record(record_id: str, auth = Depends(verify_token)):
 
 
 
+
+# ── Phase 8: Environmental Monitoring ────────────────────────────────────────
+class GrowRoomIn(BaseModel):
+    name: str = Field(..., max_length=100)
+    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
+    capacity_plants: Optional[int] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class GrowRoomUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
+    capacity_plants: Optional[int] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class EnvironmentalLogIn(BaseModel):
+    grow_room_id: str
+    log_date: date
+    temp_min: Optional[float] = Field(None, ge=-10, le=60)
+    temp_max: Optional[float] = Field(None, ge=-10, le=60)
+    humidity_min: Optional[float] = Field(None, ge=0, le=100)
+    humidity_max: Optional[float] = Field(None, ge=0, le=100)
+    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
+    vpd: Optional[float] = Field(None, ge=0, le=10)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class EnvironmentalLogUpdate(BaseModel):
+    log_date: Optional[date] = None
+    temp_min: Optional[float] = Field(None, ge=-10, le=60)
+    temp_max: Optional[float] = Field(None, ge=-10, le=60)
+    humidity_min: Optional[float] = Field(None, ge=0, le=100)
+    humidity_max: Optional[float] = Field(None, ge=0, le=100)
+    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
+    vpd: Optional[float] = Field(None, ge=0, le=10)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 7: SOP Management ───────────────────────────────────────────────────
 class SOPIn(BaseModel):
     title: str = Field(..., max_length=200)
@@ -2076,6 +2111,41 @@ def delete_tissue_culture_record(record_id: str, auth = Depends(verify_token)):
 
 
 
+
+# ── Phase 8: Environmental Monitoring ────────────────────────────────────────
+class GrowRoomIn(BaseModel):
+    name: str = Field(..., max_length=100)
+    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
+    capacity_plants: Optional[int] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class GrowRoomUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
+    capacity_plants: Optional[int] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class EnvironmentalLogIn(BaseModel):
+    grow_room_id: str
+    log_date: date
+    temp_min: Optional[float] = Field(None, ge=-10, le=60)
+    temp_max: Optional[float] = Field(None, ge=-10, le=60)
+    humidity_min: Optional[float] = Field(None, ge=0, le=100)
+    humidity_max: Optional[float] = Field(None, ge=0, le=100)
+    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
+    vpd: Optional[float] = Field(None, ge=0, le=10)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class EnvironmentalLogUpdate(BaseModel):
+    log_date: Optional[date] = None
+    temp_min: Optional[float] = Field(None, ge=-10, le=60)
+    temp_max: Optional[float] = Field(None, ge=-10, le=60)
+    humidity_min: Optional[float] = Field(None, ge=0, le=100)
+    humidity_max: Optional[float] = Field(None, ge=0, le=100)
+    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
+    vpd: Optional[float] = Field(None, ge=0, le=10)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 7: SOP Management ───────────────────────────────────────────────────
 class SOPIn(BaseModel):
     title: str = Field(..., max_length=200)
@@ -2267,6 +2337,41 @@ def batch_record_report(batch_id: str, auth = Depends(verify_token)):
     )
 
 
+
+# ── Phase 8: Environmental Monitoring ────────────────────────────────────────
+class GrowRoomIn(BaseModel):
+    name: str = Field(..., max_length=100)
+    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
+    capacity_plants: Optional[int] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class GrowRoomUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
+    capacity_plants: Optional[int] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class EnvironmentalLogIn(BaseModel):
+    grow_room_id: str
+    log_date: date
+    temp_min: Optional[float] = Field(None, ge=-10, le=60)
+    temp_max: Optional[float] = Field(None, ge=-10, le=60)
+    humidity_min: Optional[float] = Field(None, ge=0, le=100)
+    humidity_max: Optional[float] = Field(None, ge=0, le=100)
+    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
+    vpd: Optional[float] = Field(None, ge=0, le=10)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class EnvironmentalLogUpdate(BaseModel):
+    log_date: Optional[date] = None
+    temp_min: Optional[float] = Field(None, ge=-10, le=60)
+    temp_max: Optional[float] = Field(None, ge=-10, le=60)
+    humidity_min: Optional[float] = Field(None, ge=0, le=100)
+    humidity_max: Optional[float] = Field(None, ge=0, le=100)
+    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
+    vpd: Optional[float] = Field(None, ge=0, le=10)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 7: SOP Management ───────────────────────────────────────────────────
 class SOPIn(BaseModel):
     title: str = Field(..., max_length=200)
@@ -2364,6 +2469,41 @@ def delete_input_record(record_id: str, auth = Depends(verify_token)):
         .execute()
     return {"deleted": record_id}
 
+
+# ── Phase 8: Environmental Monitoring ────────────────────────────────────────
+class GrowRoomIn(BaseModel):
+    name: str = Field(..., max_length=100)
+    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
+    capacity_plants: Optional[int] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class GrowRoomUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
+    capacity_plants: Optional[int] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class EnvironmentalLogIn(BaseModel):
+    grow_room_id: str
+    log_date: date
+    temp_min: Optional[float] = Field(None, ge=-10, le=60)
+    temp_max: Optional[float] = Field(None, ge=-10, le=60)
+    humidity_min: Optional[float] = Field(None, ge=0, le=100)
+    humidity_max: Optional[float] = Field(None, ge=0, le=100)
+    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
+    vpd: Optional[float] = Field(None, ge=0, le=10)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class EnvironmentalLogUpdate(BaseModel):
+    log_date: Optional[date] = None
+    temp_min: Optional[float] = Field(None, ge=-10, le=60)
+    temp_max: Optional[float] = Field(None, ge=-10, le=60)
+    humidity_min: Optional[float] = Field(None, ge=0, le=100)
+    humidity_max: Optional[float] = Field(None, ge=0, le=100)
+    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
+    vpd: Optional[float] = Field(None, ge=0, le=10)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 7: SOP Management ───────────────────────────────────────────────────
 @app.get("/sops")
 def list_sops(status: Optional[str] = None, category: Optional[str] = None, limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
@@ -2460,3 +2600,102 @@ def acknowledge_sop(sop_id: str, payload: SOPAcknowledgmentIn, auth = Depends(ve
         "notes": payload.notes,
     }).execute()
     return row.data[0]
+
+# ── Phase 8: Environmental Monitoring ────────────────────────────────────────
+@app.get("/grow-rooms")
+def list_grow_rooms(auth = Depends(verify_token)):
+    rows = auth["client"].table("grow_rooms") \
+        .select("*") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .order("name") \
+        .execute()
+    return rows.data or []
+
+@app.post("/grow-rooms")
+def create_grow_room(payload: GrowRoomIn, auth = Depends(verify_token)):
+    existing = auth["client"].table("grow_rooms") \
+        .select("id") \
+        .eq("farm_id", auth["farm_id"]) \
+        .eq("name", payload.name) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if existing.data:
+        raise HTTPException(status_code=409, detail=f"Grow room '{payload.name}' already exists")
+    row = supabase.table("grow_rooms").insert({
+        "farm_id": auth["farm_id"],
+        "name": payload.name,
+        "room_type": payload.room_type,
+        "capacity_plants": payload.capacity_plants,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.delete("/grow-rooms/{room_id}")
+def delete_grow_room(room_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("grow_rooms") \
+        .select("id") \
+        .eq("id", room_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="grow room not found")
+    supabase.table("grow_rooms") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", room_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return {"deleted": room_id}
+
+@app.get("/environmental-logs")
+def list_environmental_logs(grow_room_id: Optional[str] = None, limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
+    q = auth["client"].table("environmental_logs") \
+        .select("*, grow_rooms(name)") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .order("log_date", desc=True)
+    if grow_room_id:
+        q = q.eq("grow_room_id", grow_room_id)
+    return q.range(offset, offset + limit - 1).execute().data or []
+
+@app.post("/environmental-logs")
+def create_environmental_log(payload: EnvironmentalLogIn, auth = Depends(verify_token)):
+    room_check = auth["client"].table("grow_rooms") \
+        .select("id") \
+        .eq("id", payload.grow_room_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not room_check.data:
+        raise HTTPException(status_code=404, detail="grow room not found")
+    row = supabase.table("environmental_logs").insert({
+        "farm_id": auth["farm_id"],
+        "grow_room_id": payload.grow_room_id,
+        "log_date": payload.log_date.isoformat(),
+        "temp_min": payload.temp_min,
+        "temp_max": payload.temp_max,
+        "humidity_min": payload.humidity_min,
+        "humidity_max": payload.humidity_max,
+        "co2_ppm": payload.co2_ppm,
+        "vpd": payload.vpd,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.delete("/environmental-logs/{log_id}")
+def delete_environmental_log(log_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("environmental_logs") \
+        .select("id") \
+        .eq("id", log_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="environmental log not found")
+    supabase.table("environmental_logs") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", log_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return {"deleted": log_id}

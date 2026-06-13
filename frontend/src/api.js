@@ -650,3 +650,56 @@ export async function acknowledgeSOP(sopId, data) {
   if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
   return res.json()
 }
+
+export async function fetchGrowRooms() {
+  const res = await apiFetch(`${BASE}/grow-rooms`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function createGrowRoom(data) {
+  const res = await apiFetch(`${BASE}/grow-rooms`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function deleteGrowRoom(id) {
+  const res = await apiFetch(`${BASE}/grow-rooms/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function fetchEnvironmentalLogs(filters = {}) {
+  const params = new URLSearchParams()
+  if (filters.grow_room_id) params.append('grow_room_id', filters.grow_room_id)
+  const url = `${BASE}/environmental-logs${params.toString() ? '?' + params.toString() : ''}`
+  const res = await apiFetch(url, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function createEnvironmentalLog(data) {
+  const res = await apiFetch(`${BASE}/environmental-logs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function deleteEnvironmentalLog(id) {
+  const res = await apiFetch(`${BASE}/environmental-logs/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
