@@ -368,11 +368,13 @@ def overview(auth = Depends(verify_token)):
 
     # next actions — strains not tested in 60+ days
     from datetime import datetime, timedelta, timezone as tz
-    sixty_days_ago = (datetime.now(tz.utc) - timedelta(days=60)).date().isoformat()
+    ninety_days_ago = (datetime.now(tz.utc) - timedelta(days=90)).date().isoformat()
+    sixty_days_ago  = (datetime.now(tz.utc) - timedelta(days=60)).date().isoformat()
     strain_reports = client.table("coa_reports") \
         .select("strain_id, report_date, strains(name)") \
         .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
+        .gte("report_date", ninety_days_ago) \
         .order("report_date", desc=True) \
         .execute()
     latest_by_strain: dict = {}
@@ -383,7 +385,6 @@ def overview(auth = Depends(verify_token)):
     overdue_strains = [v["name"] for v in latest_by_strain.values() if v["date"] and v["date"] < sixty_days_ago]
     never_tested_strains = [r["strain_name"] for r in strains_data if r["strain_name"] not in [v["name"] for v in latest_by_strain.values()]]
     # next actions — mother plants overdue for health screening (90+ days)
-    ninety_days_ago = (datetime.now(tz.utc) - timedelta(days=90)).date().isoformat()
     mp_rows = client.table("mother_plants") \
         .select("id, plant_code, strain_id") \
         .eq("farm_id", auth["farm_id"]) \
@@ -683,17 +684,23 @@ def consistency_alerts(auth = Depends(verify_token)):
 
 
 def compute_chemotype(compounds: dict) -> str:
-    thc = float(compounds.get("THCA", 0) or 0) + float(compounds.get("D9-THC", 0) or 0)
-    cbd = float(compounds.get("CBDA", 0) or 0) + float(compounds.get("CBD", 0) or 0)
-    cbg = float(compounds.get("CBGA", 0) or 0) + float(compounds.get("CBG", 0) or 0)
+    # Apply decarboxylation conversion (THCA×0.877, CBDA×0.877) for accurate ratio
+    thc = float(compounds.get("THCA", 0) or 0) * 0.877 + float(compounds.get("D9-THC", 0) or 0)
+    cbd = float(compounds.get("CBDA", 0) or 0) * 0.877 + float(compounds.get("CBD", 0) or 0)
+    cbg = float(compounds.get("CBGA", 0) or 0) * 0.877 + float(compounds.get("CBG", 0) or 0)
+    # Type IV: CBG-dominant
     if cbg > thc and cbg > cbd and cbg > 1.0:
         return "Type IV"
-    if thc > 1.0 and thc > cbd * 2:
+    # Type I: THC-dominant (THC:CBD ratio > 5, internationally-used threshold)
+    if thc > 1.0 and (cbd == 0 or thc / cbd > 5):
         return "Type I"
+    # Type II: Mixed (both THC and CBD significant)
     if thc >= 0.5 and cbd >= 0.5:
         return "Type II"
-    if cbd > thc * 2 and cbd > 1.0:
+    # Type III: CBD-dominant (CBD:THC ratio > 5)
+    if cbd > 1.0 and (thc == 0 or cbd / thc > 5):
         return "Type III"
+    # Type V: negligible cannabinoids
     return "Type V"
 
 @app.get("/strains/all")
@@ -717,10 +724,12 @@ def list_strains(limit: int = Query(50, le=200), offset: int = 0, auth = Depends
     from collections import defaultdict
     strains: dict = {}
     compounds_by_strain: dict = defaultdict(dict)
+    PRIORITY = ["THCA", "CBDA", "CBD", "D9-THC", "CBGA", "CBG"]
     for r in data:
         sid = r["strain_id"]
         compounds_by_strain[sid][r["compound_name"]] = float(r["avg_pct"] or 0)
-        if r["compound_name"] == "THCA":
+        # Use THCA row as primary if available, otherwise use first available compound
+        if sid not in strains or PRIORITY.index(r["compound_name"]) < PRIORITY.index(strains[sid]["compound_name"]):
             strains[sid] = r
     # get latest report date per strain
     strain_ids = list(strains.keys())
@@ -1623,7 +1632,9 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
         .execute()
 
     farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
-    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+    if not farm_row.data:
+        raise HTTPException(status_code=500, detail="Farm not found — cannot generate report")
+    farm_name = farm_row.data[0]["name"]
     pdf = render_gacp_batch_report(
         farm_name=farm_name,
         strain_name=strain_name,
@@ -1651,7 +1662,9 @@ def strain_performance_report(strain_name: str, auth = Depends(verify_token)):
     strain_id = strain_row.data[0]["id"]
 
     farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
-    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+    if not farm_row.data:
+        raise HTTPException(status_code=500, detail="Farm not found — cannot generate report")
+    farm_name = farm_row.data[0]["name"]
 
     compounds_raw = auth["client"].table("strain_consistency")         .select("compound_name, avg_pct, cv_pct, stability_score, status")         .eq("farm_id", auth["farm_id"])         .eq("strain_name", strain_name)         .execute()
     compounds = [
@@ -1727,7 +1740,9 @@ def import_summary_report(auth = Depends(verify_token)):
     from api.reports.generator import render_import_summary_report
 
     farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
-    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+    if not farm_row.data:
+        raise HTTPException(status_code=500, detail="Farm not found — cannot generate report")
+    farm_name = farm_row.data[0]["name"]
 
     seed_lots_raw = auth["client"].table("seed_lots")         .select("*, strains(name)")         .eq("farm_id", auth["farm_id"])         .is_("deleted_at", "null")         .order("arrival_date", desc=False)         .execute()
     seed_lots = seed_lots_raw.data or []
@@ -1764,7 +1779,9 @@ def trial_performance_report(strain_name: str, auth = Depends(verify_token)):
     strain_id = strain_row.data[0]["id"]
 
     farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
-    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+    if not farm_row.data:
+        raise HTTPException(status_code=500, detail="Farm not found — cannot generate report")
+    farm_name = farm_row.data[0]["name"]
 
     trials_raw = auth["client"].table("trials")         .select("location_name, grow_type, start_date, harvest_date, plant_count, dry_weight_g, wet_weight_g, grow_medium, light_cycle, trial_coa_links(coa_reports(cannabinoid_results(compound_name, value_pct)))")         .eq("farm_id", auth["farm_id"])         .eq("strain_id", strain_id)         .is_("deleted_at", "null")         .order("start_date", desc=False)         .execute()
     trials = trials_raw.data or []
@@ -2138,6 +2155,12 @@ def update_batch_record(record_id: str, payload: BatchRecordUpdate, auth = Depen
     updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if not updates:
         raise HTTPException(status_code=422, detail="no fields to update")
+    for fk_table, fk_key in [("strains","strain_id"),("seed_lots","seed_lot_id"),("mother_plants","mother_plant_id"),("trials","trial_id"),("coa_reports","coa_report_id")]:
+        fk_id = updates.get(fk_key)
+        if fk_id:
+            fk_check = auth["client"].table(fk_table).select("id").eq("id", fk_id).eq("farm_id", auth["farm_id"]).execute()
+            if not fk_check.data:
+                raise HTTPException(status_code=403, detail=f"{fk_table} not found or not owned by this farm")
     row = supabase.table("batch_records").update(updates) \
         .eq("id", record_id) \
         .eq("farm_id", auth["farm_id"]) \
@@ -2178,7 +2201,9 @@ def batch_record_report(batch_id: str, auth = Depends(verify_token)):
     b = batch_row.data[0]
 
     farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
-    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+    if not farm_row.data:
+        raise HTTPException(status_code=500, detail="Farm not found — cannot generate report")
+    farm_name = farm_row.data[0]["name"]
 
     seed_lot = b.get("seed_lots")
     mother_plant = b.get("mother_plants")
@@ -2309,6 +2334,10 @@ def update_input_record(record_id: str, payload: InputRecordUpdate, auth = Depen
         updates["input_date"] = str(updates["input_date"])
     if not updates:
         raise HTTPException(status_code=422, detail="no fields to update")
+    if "batch_record_id" in updates and updates["batch_record_id"]:
+        br_check = auth["client"].table("batch_records").select("id").eq("id", updates["batch_record_id"]).eq("farm_id", auth["farm_id"]).is_("deleted_at", "null").execute()
+        if not br_check.data:
+            raise HTTPException(status_code=403, detail="batch_record not found or not owned by this farm")
     row = supabase.table("input_records").update(updates) \
         .eq("id", record_id) \
         .eq("farm_id", auth["farm_id"]) \
@@ -2696,6 +2725,7 @@ def delete_training(training_id: str, auth = Depends(verify_token)):
         .select("id") \
         .eq("id", training_id) \
         .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="training record not found")
@@ -2810,6 +2840,10 @@ def list_export_records(limit: int = Query(50, le=200), offset: int = 0, auth = 
 
 @app.post("/export-records")
 def create_export_record(payload: ExportRecordIn, auth = Depends(verify_token)):
+    if payload.strain_id:
+        strain_check = auth["client"].table("strains").select("id").eq("id", payload.strain_id).eq("farm_id", auth["farm_id"]).is_("deleted_at", "null").execute()
+        if not strain_check.data:
+            raise HTTPException(status_code=403, detail="strain not found or not owned by this farm")
     row = supabase.table("export_records").insert({
         "farm_id": auth["farm_id"],
         "batch_code": payload.batch_code,
@@ -2893,7 +2927,7 @@ def compliance_checklist(strain_name: str, request: Request, auth = Depends(veri
     any_hlvd_positive = any(r.get("hlvd_result") == "positive" for r in (mother_plants.data or []))
     checks.append({"id": "mother_plant", "label": "Mother plant registered", "passed": has_mother, "severity": "high", "message": None if has_mother else "No mother plant found for this strain"})
     checks.append({"id": "hlvd_tested", "label": "All mother plants HLVd tested", "passed": has_mother and all_hlvd_tested, "severity": "high", "message": None if (has_mother and all_hlvd_tested) else "One or more mother plants missing HLVd test result"})
-    checks.append({"id": "hlvd_negative", "label": "No HLVd positive mother plants", "passed": not any_hlvd_positive, "severity": "critical", "message": None if not any_hlvd_positive else "One or more mother plants tested HLVd positive — quarantine required"})
+    checks.append({"id": "hlvd_negative", "label": "No HLVd positive mother plants", "passed": has_mother and not any_hlvd_positive, "severity": "critical", "message": None if (has_mother and not any_hlvd_positive) else "One or more mother plants tested HLVd positive — quarantine required" if any_hlvd_positive else "No mother plants registered — cannot verify HLVd status"})
 
     # 4. COA records
     report_ids_row = client.table("coa_reports").select("id, report_date").eq("farm_id", farm_id).eq("strain_id", strain_id).is_("deleted_at", "null").order("report_date", desc=True).execute()
@@ -2995,6 +3029,10 @@ def list_harvest_sales(limit: int = Query(50, le=200), offset: int = 0, auth = D
 
 @app.post("/harvest-sales")
 def create_harvest_sale(payload: HarvestSaleIn, auth = Depends(verify_token)):
+    if payload.strain_id:
+        strain_check = auth["client"].table("strains").select("id").eq("id", payload.strain_id).eq("farm_id", auth["farm_id"]).is_("deleted_at", "null").execute()
+        if not strain_check.data:
+            raise HTTPException(status_code=403, detail="strain not found or not owned by this farm")
     row = supabase.table("harvest_sales").insert({
         "farm_id": auth["farm_id"],
         "sale_date": payload.sale_date.isoformat(),
@@ -3057,7 +3095,9 @@ def monthly_summary_report(year: int, month: int, auth = Depends(verify_token)):
         raise HTTPException(status_code=422, detail="month must be 1-12")
 
     farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
-    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+    if not farm_row.data:
+        raise HTTPException(status_code=500, detail="Farm not found — cannot generate report")
+    farm_name = farm_row.data[0]["name"]
 
     _, last_day = calendar.monthrange(year, month)
     start = f"{year}-{month:02d}-01"

@@ -168,7 +168,7 @@ function ExportForm({ strains, onSaved, onCancel }) {
 
 // ── ExportRow ─────────────────────────────────────────────────────────────────
 
-function ExportRow({ record, strainMap, onDelete, last }) {
+function ExportRow({ record, onDelete, last }) {
   const [hovered, setHovered] = useState(false)
 
   return (
@@ -185,7 +185,7 @@ function ExportRow({ record, strainMap, onDelete, last }) {
         {record.batch_code ?? '—'}
       </span>
       <span style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-        {(record.strain_id ? strainMap[record.strain_id] : null) ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
+        {record.strains?.name ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
       </span>
       <span style={{ width: 110, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {record.destination_country ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
@@ -258,7 +258,6 @@ export default function ExportRecords() {
   const hdr = { fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }
 
   const data       = records ?? []
-  const strainMap  = Object.fromEntries(strains.map(s => [s.strain_id, s.strain]))
   const pending    = data.filter(r => r.status === 'pending').length
   const completed  = data.filter(r => r.status === 'completed').length
   const countries  = new Set(data.map(r => r.destination_country).filter(Boolean)).size
@@ -325,7 +324,6 @@ export default function ExportRecords() {
             <ExportRow
               key={r.id}
               record={r}
-              strainMap={strainMap}
               onDelete={handleDelete}
               last={i === data.length - 1}
             />

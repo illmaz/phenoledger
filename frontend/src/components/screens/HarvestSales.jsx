@@ -149,7 +149,7 @@ function SaleForm({ strains, onSaved }) {
 
 // ── SaleRow ───────────────────────────────────────────────────────────────────
 
-function SaleRow({ record, strainMap, onDelete, last }) {
+function SaleRow({ record, onDelete, last }) {
   const [hovered, setHovered] = useState(false)
 
   return (
@@ -166,7 +166,7 @@ function SaleRow({ record, strainMap, onDelete, last }) {
         {fmtDate(record.sale_date)}
       </span>
       <span style={{ width: 110, fontSize: 12, color: 'var(--text)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {(record.strain_id ? strainMap[record.strain_id] : null) ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
+        {record.strains?.name ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
       </span>
       <span style={{ width: 110, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
         {record.batch_code ?? <span style={{ color: 'var(--text-3)', fontFamily: 'inherit' }}>—</span>}
@@ -239,7 +239,6 @@ export default function HarvestSales() {
   const hdr = { fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }
 
   const data       = sales ?? []
-  const strainMap  = Object.fromEntries(strains.map(s => [s.strain_id, s.strain]))
   const totalGrams = data.reduce((sum, r) => sum + (r.quantity_grams ?? 0), 0)
   const totalRev   = data.reduce((sum, r) => sum + (r.price_thb ?? 0), 0)
   const buyers     = new Set(data.map(r => r.buyer_name).filter(Boolean)).size
@@ -287,7 +286,6 @@ export default function HarvestSales() {
             <SaleRow
               key={r.id}
               record={r}
-              strainMap={strainMap}
               onDelete={handleDelete}
               last={i === data.length - 1}
             />

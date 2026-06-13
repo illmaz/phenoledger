@@ -65,10 +65,10 @@ function ComplianceChecklist({ strainName }) {
 
   if (!data) return null
 
-  const passed  = data.passed ?? 0
-  const total   = data.total  ?? 0
-  const pct     = total > 0 ? Math.round((passed / total) * 100) : 0
-  const checks  = data.checks ?? []
+  const passed  = data.score   ?? 0
+  const total   = data.total   ?? 0
+  const pct     = data.percent ?? (total > 0 ? Math.round((passed / total) * 100) : 0)
+  const checks  = data.checks  ?? []
 
   return (
     <div style={{
@@ -111,6 +111,11 @@ function ComplianceChecklist({ strainName }) {
                   {!item.passed && item.message && (
                     <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
                       {item.message}
+                    </div>
+                  )}
+                  {item.id === 'consistency' && item.passed && (
+                    <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
+                      Monitor THCA regularity across batches — strains in watch status still pass this check
                     </div>
                   )}
                 </div>

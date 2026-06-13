@@ -67,7 +67,7 @@ function ResultRow({ record, last }) {
         {fmtNum(record.loq_ppb)}
       </span>
       <span style={{ width: 100, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, textAlign: 'right' }}>
-        {fmtNum(record.action_limit_ppb)}
+        {record.action_limit_ppb != null ? Number(record.action_limit_ppb).toFixed(2) : '—'}
       </span>
       <span style={{ width: 90, flexShrink: 0 }}>
         <Badge variant={variant}>{label}</Badge>
@@ -159,7 +159,7 @@ export default function PesticideResidues() {
             <span style={{ ...hdr, width: 150 }}>Compound</span>
             <span style={{ ...hdr, width: 80, textAlign: 'right' }}>Value (ppb)</span>
             <span style={{ ...hdr, width: 80, textAlign: 'right' }}>LOQ (ppb)</span>
-            <span style={{ ...hdr, width: 100, textAlign: 'right' }}>Limit (ppb)</span>
+            <span style={{ ...hdr, width: 100, textAlign: 'right' }}>Action Limit (ppb)</span>
             <span style={{ ...hdr, width: 90 }}>Result</span>
           </div>
 
