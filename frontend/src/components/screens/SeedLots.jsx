@@ -4,6 +4,10 @@ import { Panel, Badge, Grid, StatCard } from '../ui'
 import CountrySelect from '../CountrySelect'
 import { fetchSeedLots, createSeedLot, updateSeedLot, deleteSeedLot, fetchStrains } from '../../api'
 
+const LOT_STATUSES = ['active', 'exhausted', 'quarantine']
+const LOT_STATUS_BADGE  = { active: 'ok', exhausted: 'warn', quarantine: 'danger' }
+const LOT_STATUS_LABEL  = { active: 'Active', exhausted: 'Exhausted', quarantine: 'Quarantine' }
+
 function fmtDate(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -25,7 +29,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
   const [form, setForm] = useState({
     lot_code: '', strain_id: '', origin_country: '',
     import_permit_number: '', phytosanitary_cert_number: '',
-    germination_rate: '', quantity_seeds: '', arrival_date: '', notes: '',
+    germination_rate: '', quantity_seeds: '', arrival_date: '', status: 'active', notes: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
@@ -46,6 +50,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
         germination_rate:          form.germination_rate  ? parseFloat(form.germination_rate)    : null,
         quantity_seeds:            form.quantity_seeds    ? parseInt(form.quantity_seeds, 10)    : null,
         arrival_date:              form.arrival_date               || null,
+        status:                    form.status                     || 'active',
         notes:                     form.notes                      || null,
       })
       onSaved()
@@ -85,7 +90,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div>
               <label style={lbl}>Lot Code *</label>
               <input style={inp} value={form.lot_code} onChange={e => set('lot_code', e.target.value)} placeholder="SL-001" required />
@@ -93,6 +98,12 @@ function RegisterModal({ strains, onClose, onSaved }) {
             <div>
               <label style={lbl}>Arrival Date</label>
               <input style={inp} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
+            </div>
+            <div>
+              <label style={lbl}>Status</label>
+              <select style={inp} value={form.status} onChange={e => set('status', e.target.value)}>
+                {LOT_STATUSES.map(s => <option key={s} value={s}>{LOT_STATUS_LABEL[s]}</option>)}
+              </select>
             </div>
           </div>
 
@@ -186,6 +197,7 @@ function EditModal({ lot, onClose, onSaved }) {
     germination_rate:          lot.germination_rate != null ? String(lot.germination_rate) : '',
     quantity_seeds:            lot.quantity_seeds   != null ? String(lot.quantity_seeds)   : '',
     arrival_date:              lot.arrival_date ? lot.arrival_date.split('T')[0] : '',
+    status:                    lot.status ?? 'active',
     notes:                     lot.notes ?? '',
   })
   const [saving, setSaving] = useState(false)
@@ -204,6 +216,7 @@ function EditModal({ lot, onClose, onSaved }) {
         germination_rate:          form.germination_rate  ? parseFloat(form.germination_rate)  : null,
         quantity_seeds:            form.quantity_seeds    ? parseInt(form.quantity_seeds, 10)  : null,
         arrival_date:              form.arrival_date               || null,
+        status:                    form.status                     || null,
         notes:                     form.notes                      || null,
       })
       onSaved()
@@ -246,7 +259,7 @@ function EditModal({ lot, onClose, onSaved }) {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div>
               <label style={lbl}>Origin Country</label>
               <CountrySelect
@@ -258,6 +271,12 @@ function EditModal({ lot, onClose, onSaved }) {
             <div>
               <label style={lbl}>Arrival Date</label>
               <input style={inp} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
+            </div>
+            <div>
+              <label style={lbl}>Status</label>
+              <select style={inp} value={form.status} onChange={e => set('status', e.target.value)}>
+                {LOT_STATUSES.map(s => <option key={s} value={s}>{LOT_STATUS_LABEL[s]}</option>)}
+              </select>
             </div>
           </div>
 
@@ -370,6 +389,11 @@ function LotRow({ lot, onEdit, onDelete, last }) {
           ? <Badge variant="warn">Exhausted</Badge>
           : <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{lot.quantity_seeds.toLocaleString()} seeds</span>
         }
+      </span>
+      <span style={{ width: 84, flexShrink: 0 }}>
+        {lot.status
+          ? <Badge variant={LOT_STATUS_BADGE[lot.status] ?? 'gray'}>{LOT_STATUS_LABEL[lot.status] ?? lot.status}</Badge>
+          : <span style={{ fontSize: 12, color: 'var(--text-3)' }}>—</span>}
       </span>
       <span style={{ width: 68, textAlign: 'right', fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
         {fmtGerm(lot.germination_rate)}
@@ -496,6 +520,7 @@ export default function SeedLots() {
             <span style={{ ...hdr, width: 100 }}>Import Permit</span>
             <span style={{ ...hdr, width: 90 }}>Phyto Cert</span>
             <span style={{ ...hdr, width: 88, textAlign: 'right' }}>Seeds</span>
+            <span style={{ ...hdr, width: 84 }}>Status</span>
             <span style={{ ...hdr, width: 68, textAlign: 'right' }}>Germ.</span>
             <span style={{ ...hdr, width: 80 }}>Arrival</span>
             <span style={{ ...hdr, width: 52 }} />

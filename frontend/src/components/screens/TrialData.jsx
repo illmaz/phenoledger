@@ -23,7 +23,9 @@ function fmtWeight(g) {
   return `${(n % 1 === 0 ? n : n.toFixed(1)).toLocaleString()}g`
 }
 
-const GROW_BADGE = { indoor: 'info', outdoor: 'ok', greenhouse: 'purple' }
+const GROW_BADGE   = { indoor: 'info', outdoor: 'ok', greenhouse: 'purple' }
+const TRIAL_STATUS_BADGE  = { ongoing: 'ok', completed: 'info', harvested: 'warn' }
+const TRIAL_STATUS_LABEL  = { ongoing: 'Ongoing', completed: 'Completed', harvested: 'Harvested' }
 
 function GrowBadge({ gt }) {
   if (!gt) return <span style={{ color: 'var(--text-3)' }}>—</span>
@@ -169,7 +171,7 @@ function AddEventModal({ trialId, onClose, onSaved }) {
 
 function RegisterModal({ strains, onClose, onSaved }) {
   const [form, setForm] = useState({
-    strain_id: '', location_name: '', grow_type: '',
+    strain_id: '', location_name: '', grow_type: '', status: 'ongoing',
     start_date: '', harvest_date: '', plant_count: '',
     grow_medium: '', light_cycle: '',
     temperature_min: '', temperature_max: '',
@@ -190,6 +192,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
         strain_id:       form.strain_id                                           || null,
         location_name:   form.location_name                                       || null,
         grow_type:       form.grow_type                                           || null,
+        status:          form.status                                               || null,
         start_date:      form.start_date                                          || null,
         harvest_date:    form.harvest_date                                        || null,
         plant_count:     form.plant_count     ? parseInt(form.plant_count, 10)   : null,
@@ -236,7 +239,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
             </select>
           </div>
 
-          <div style={row2}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div>
               <label style={lbl}>Location Name</label>
               <input style={inp} value={form.location_name} onChange={e => set('location_name', e.target.value)} placeholder="e.g. Greenhouse A" />
@@ -248,6 +251,14 @@ function RegisterModal({ strains, onClose, onSaved }) {
                 <option value="indoor">Indoor</option>
                 <option value="outdoor">Outdoor</option>
                 <option value="greenhouse">Greenhouse</option>
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Status</label>
+              <select style={inp} value={form.status} onChange={e => set('status', e.target.value)}>
+                <option value="ongoing">Ongoing</option>
+                <option value="completed">Completed</option>
+                <option value="harvested">Harvested</option>
               </select>
             </div>
           </div>
@@ -836,6 +847,11 @@ function TrialRow({ trial, onOpen, onDelete, last }) {
           ? <Badge variant="ok">✓ COA</Badge>
           : <span style={{ fontSize: 12, color: 'var(--text-3)' }}>—</span>}
       </span>
+      <span style={{ width: 84, flexShrink: 0 }}>
+        {trial.status
+          ? <Badge variant={TRIAL_STATUS_BADGE[trial.status] ?? 'gray'}>{TRIAL_STATUS_LABEL[trial.status] ?? trial.status}</Badge>
+          : <span style={{ fontSize: 12, color: 'var(--text-3)' }}>—</span>}
+      </span>
       <div style={{ width: 28, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
         {hovered && (
           <button
@@ -1031,6 +1047,7 @@ export default function TrialData() {
                 <span style={{ ...hdr, width: 56, textAlign: 'right' }}>Plants</span>
                 <span style={{ ...hdr, width: 76, textAlign: 'right' }}>Dry Wt</span>
                 <span style={{ ...hdr, width: 68 }}>COA</span>
+                <span style={{ ...hdr, width: 84 }}>Status</span>
                 <span style={{ ...hdr, width: 28 }} />
               </div>
               {filtered.length === 0 ? (

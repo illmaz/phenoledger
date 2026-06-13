@@ -69,6 +69,7 @@ class SeedLotIn(BaseModel):
     quantity_seeds: Optional[int] = Field(None, ge=0)
     arrival_date: Optional[date] = None
     notes: Optional[str] = Field(None, max_length=500)
+    status: Optional[Literal["active", "exhausted", "quarantine"]] = "active"
 
 
 class MotherPlantIn(BaseModel):
@@ -102,6 +103,7 @@ class SeedLotUpdate(BaseModel):
     quantity_seeds: Optional[int] = Field(None, ge=0)
     arrival_date: Optional[date] = None
     notes: Optional[str] = Field(None, max_length=500)
+    status: Optional[Literal["active", "exhausted", "quarantine"]] = None
 
 
 class TrialEventIn(BaseModel):
@@ -206,12 +208,14 @@ class BreedingRecordIn(BaseModel):
     seed_count: Optional[int] = Field(None, ge=0)
     success_rate: Optional[float] = Field(None, ge=0, le=100)
     breeding_notes: Optional[str] = Field(None, max_length=1000)
+    status: Optional[Literal["in_progress", "completed", "failed"]] = "in_progress"
 
 class BreedingRecordUpdate(BaseModel):
     cross_date: Optional[date] = None
     seed_count: Optional[int] = Field(None, ge=0)
     success_rate: Optional[float] = Field(None, ge=0, le=100)
     breeding_notes: Optional[str] = Field(None, max_length=1000)
+    status: Optional[Literal["in_progress", "completed", "failed"]] = None
 
 class PlantHealthScreeningIn(BaseModel):
     mother_plant_id: Optional[str] = None

@@ -11,6 +11,10 @@ const GEN_VARIANT = {
   S1: 'purple', IBL: 'warn', Other: 'gray',
 }
 
+const RECORD_STATUSES = ['in_progress', 'completed', 'failed']
+const STATUS_BADGE = { in_progress: 'warn', completed: 'ok', failed: 'danger' }
+const STATUS_LABEL = { in_progress: 'In Progress', completed: 'Completed', failed: 'Failed' }
+
 function fmtDate(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -21,7 +25,7 @@ function fmtDate(iso) {
 function BreedingForm({ strains, onSaved }) {
   const EMPTY = {
     parent_strain_a_id: '', parent_strain_b_id: '', result_strain_id: '', generation: '',
-    cross_date: '', seed_count: '', success_rate: '', breeding_notes: '',
+    cross_date: '', seed_count: '', success_rate: '', breeder: '', status: 'in_progress', breeding_notes: '',
   }
   const [form, setForm]   = useState(EMPTY)
   const [saving, setSaving] = useState(false)
@@ -44,7 +48,11 @@ function BreedingForm({ strains, onSaved }) {
         cross_date:         form.cross_date         || null,
         seed_count:         form.seed_count         ? parseInt(form.seed_count, 10) : null,
         success_rate:       form.success_rate        ? parseFloat(form.success_rate) : null,
-        breeding_notes:     form.breeding_notes      || null,
+        status:             form.status || 'in_progress',
+        breeding_notes:     [
+                              form.breeder.trim() ? `Breeder: ${form.breeder.trim()}` : '',
+                              form.breeding_notes.trim(),
+                            ].filter(Boolean).join('\n') || null,
       })
       setForm(EMPTY)
       await onSaved()
@@ -102,7 +110,21 @@ function BreedingForm({ strains, onSaved }) {
           </div>
         </div>
 
-        {/* Row 3: Cross Date / Seed Count / Success Rate */}
+        {/* Row 3: Breeder / Status */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div>
+            <label style={lbl}>Breeder</label>
+            <input style={inp} value={form.breeder} onChange={e => set('breeder', e.target.value)} placeholder="e.g. Seed company or individual" />
+          </div>
+          <div>
+            <label style={lbl}>Status</label>
+            <select style={inp} value={form.status} onChange={e => set('status', e.target.value)}>
+              {RECORD_STATUSES.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Row 4: Cross Date / Seed Count / Success Rate */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <div>
             <label style={lbl}>Cross Date</label>
@@ -165,6 +187,12 @@ function BreedingForm({ strains, onSaved }) {
   )
 }
 
+function extractBreeder(notes) {
+  if (!notes) return null
+  const m = notes.match(/^Breeder:\s*(.+?)(?:\n|$)/im)
+  return m ? m[1].trim() : null
+}
+
 // ── RecordRow ─────────────────────────────────────────────────────────────────
 
 function RecordRow({ record, onDelete, onNavigate, last }) {
@@ -204,6 +232,14 @@ function RecordRow({ record, onDelete, onNavigate, last }) {
       </span>
       <span style={{ width: 60, flexShrink: 0 }}>
         <Badge variant={GEN_VARIANT[record.generation] ?? 'gray'}>{record.generation ?? '—'}</Badge>
+      </span>
+      <span style={{ width: 100, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {extractBreeder(record.breeding_notes) ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
+      </span>
+      <span style={{ width: 84, flexShrink: 0 }}>
+        {record.status
+          ? <Badge variant={STATUS_BADGE[record.status] ?? 'gray'}>{STATUS_LABEL[record.status] ?? record.status}</Badge>
+          : <span style={{ fontSize: 12, color: 'var(--text-3)' }}>—</span>}
       </span>
       <span style={{ width: 90, fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
         {fmtDate(record.cross_date)}
@@ -310,6 +346,8 @@ export default function BreedingRecords({ onNavigate }) {
             <span style={{ ...hdr, flex: 1 }}>Parent B</span>
             <span style={{ ...hdr, width: 130 }}>Result Strain</span>
             <span style={{ ...hdr, width: 60 }}>Gen.</span>
+            <span style={{ ...hdr, width: 100 }}>Breeder</span>
+            <span style={{ ...hdr, width: 84 }}>Status</span>
             <span style={{ ...hdr, width: 90 }}>Cross Date</span>
             <span style={{ ...hdr, width: 70, textAlign: 'right' }}>Seeds</span>
             <span style={{ ...hdr, width: 76, textAlign: 'right' }}>Success</span>

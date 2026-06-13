@@ -176,7 +176,7 @@ function StatusBadgeWithTooltip({ status }) {
 
 // ── StrainCard (grid view) ───────────────────────────────────────────────────
 
-function StrainCard({ strain, thca, upload_count, last_tested, status, stability, chemotype, onClick, onDelete }) {
+function StrainCard({ strain, thca, upload_count, last_tested, top_terpene, status, stability, chemotype, onClick, onDelete }) {
   const [hovered, setHovered] = useState(false)
   const barWidth = thca != null ? Math.min((thca / 35) * 100, 100) : 0
 
@@ -205,6 +205,11 @@ function StrainCard({ strain, thca, upload_count, last_tested, status, stability
           <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
             {last_tested ? `Last tested: ${fmtDate(last_tested)}` : 'Never tested'}
           </div>
+          {top_terpene && (
+            <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
+              Top terpene: {top_terpene}
+            </div>
+          )}
         </div>
         {status && (
           <div style={{
@@ -489,6 +494,7 @@ function StrainList({ strains, onSelect, onDelete }) {
               thca={s.thca}
               upload_count={s.upload_count}
               last_tested={s.last_tested}
+              top_terpene={s.top_terpene}
               status={s.status}
               stability={s.stability}
               chemotype={s.chemotype}
