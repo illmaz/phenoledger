@@ -33,13 +33,16 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(_bearer)):
     response = supabase_anon.auth.get_user(token)
     if not response or not response.user:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    
+    # Reuse the anon client — swap auth token per request instead of creating new client
     user_client = create_client(
         os.environ["SUPABASE_URL"],
         os.environ["SUPABASE_ANON_KEY"],
     )
     user_client.postgrest.auth(token)
-    farm_row = user_client.table("farm_users")         .select("farm_id")         .eq("user_id", response.user.id)         .execute()
+    farm_row = user_client.table("farm_users") \
+        .select("farm_id") \
+        .eq("user_id", response.user.id) \
+        .execute()
     if not farm_row.data:
         raise HTTPException(status_code=403, detail="No farm associated with this account")
     farm_id = farm_row.data[0]["farm_id"]

@@ -8,7 +8,7 @@ import urllib.parse
 from typing import Optional, Literal
 from pydantic import model_validator
 from pydantic import BaseModel, Field
-from fastapi import FastAPI, UploadFile, HTTPException, Depends, Query
+from fastapi import FastAPI, UploadFile, HTTPException, Depends, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from api.dependencies import s3, supabase, verify_token
 from phenoledger.lab_detector import detect, LabFamily
@@ -17,6 +17,9 @@ from phenoledger.extractors.confident_lims import extract as confident_lims_extr
 from phenoledger.extractors.botanacor import extract as botanacor_extract, extract_header as botanacor_header
 from phenoledger.extractors.analytics_labs import extract as analytics_labs_extract, extract_header as analytics_labs_header
 from datetime import datetime, timezone, date
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 
 LAB_DISPLAY = {
@@ -278,7 +281,10 @@ class TissueCultureRecordUpdate(BaseModel):
     notes: Optional[str] = Field(None, max_length=1000)
 
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -419,7 +425,8 @@ def overview(auth = Depends(verify_token)):
 
 
 @app.post("/upload")
-async def upload_coa(file: UploadFile, auth = Depends(verify_token)):
+@limiter.limit("10/minute")
+async def upload_coa(request: Request,file: UploadFile, auth = Depends(verify_token)):
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="only PDF files accepted")
 
@@ -2856,7 +2863,8 @@ def delete_export_record(record_id: str, auth = Depends(verify_token)):
 
 # ── GACP Compliance Checklist ─────────────────────────────────────────────────
 @app.get("/compliance-checklist/{strain_name}")
-def compliance_checklist(strain_name: str, auth = Depends(verify_token)):
+@limiter.limit("30/minute")
+def compliance_checklist(strain_name: str, request: Request, auth = Depends(verify_token)):
     from datetime import datetime, timedelta, timezone as tz
     client = auth["client"]
     farm_id = auth["farm_id"]
