@@ -572,3 +572,32 @@ export async function downloadBatchReport(batchId, batchCode) {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+export async function fetchInputRecords(filters = {}) {
+  const params = new URLSearchParams()
+  if (filters.batch_record_id) params.append('batch_record_id', filters.batch_record_id)
+  if (filters.input_type) params.append('input_type', filters.input_type)
+  const url = `${BASE}/input-records${params.toString() ? '?' + params.toString() : ''}`
+  const res = await apiFetch(url, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function createInputRecord(data) {
+  const res = await apiFetch(`${BASE}/input-records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function deleteInputRecord(id) {
+  const res = await apiFetch(`${BASE}/input-records/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}

@@ -1846,6 +1846,30 @@ def delete_breeding_record(record_id: str, auth = Depends(verify_token)):
     return {"deleted": record_id}
 
 
+
+# ── Phase 6: Agricultural Input Records ──────────────────────────────────────
+class InputRecordIn(BaseModel):
+    input_date: date
+    input_type: Literal["fertilizer", "pesticide", "pH_adjuster", "irrigation", "other"]
+    product_name: str = Field(..., max_length=200)
+    rate: Optional[str] = Field(None, max_length=50)
+    unit: Optional[str] = Field(None, max_length=50)
+    operator: Optional[str] = Field(None, max_length=100)
+    grow_room: Optional[str] = Field(None, max_length=100)
+    batch_record_id: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class InputRecordUpdate(BaseModel):
+    input_date: Optional[date] = None
+    input_type: Optional[Literal["fertilizer", "pesticide", "pH_adjuster", "irrigation", "other"]] = None
+    product_name: Optional[str] = Field(None, max_length=200)
+    rate: Optional[str] = Field(None, max_length=50)
+    unit: Optional[str] = Field(None, max_length=50)
+    operator: Optional[str] = Field(None, max_length=100)
+    grow_room: Optional[str] = Field(None, max_length=100)
+    batch_record_id: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 5: Batch Records ────────────────────────────────────────────────────
 class BatchRecordIn(BaseModel):
     batch_code: str = Field(..., max_length=100)
@@ -2020,6 +2044,30 @@ def delete_tissue_culture_record(record_id: str, auth = Depends(verify_token)):
     return {"deleted": record_id}
 
 
+
+# ── Phase 6: Agricultural Input Records ──────────────────────────────────────
+class InputRecordIn(BaseModel):
+    input_date: date
+    input_type: Literal["fertilizer", "pesticide", "pH_adjuster", "irrigation", "other"]
+    product_name: str = Field(..., max_length=200)
+    rate: Optional[str] = Field(None, max_length=50)
+    unit: Optional[str] = Field(None, max_length=50)
+    operator: Optional[str] = Field(None, max_length=100)
+    grow_room: Optional[str] = Field(None, max_length=100)
+    batch_record_id: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class InputRecordUpdate(BaseModel):
+    input_date: Optional[date] = None
+    input_type: Optional[Literal["fertilizer", "pesticide", "pH_adjuster", "irrigation", "other"]] = None
+    product_name: Optional[str] = Field(None, max_length=200)
+    rate: Optional[str] = Field(None, max_length=50)
+    unit: Optional[str] = Field(None, max_length=50)
+    operator: Optional[str] = Field(None, max_length=100)
+    grow_room: Optional[str] = Field(None, max_length=100)
+    batch_record_id: Optional[str] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 5: Batch Records ────────────────────────────────────────────────────
 @app.get("/batch-records")
 def list_batch_records(limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
@@ -2157,3 +2205,71 @@ def batch_record_report(batch_id: str, auth = Depends(verify_token)):
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=BatchRecord_{batch_data['batch_code']}.pdf"},
     )
+
+# ── Phase 6: Agricultural Input Records ──────────────────────────────────────
+@app.get("/input-records")
+def list_input_records(batch_record_id: Optional[str] = None, input_type: Optional[str] = None, limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
+    q = auth["client"].table("input_records") \
+        .select("*") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .order("input_date", desc=True)
+    if batch_record_id:
+        q = q.eq("batch_record_id", batch_record_id)
+    if input_type:
+        q = q.eq("input_type", input_type)
+    return q.range(offset, offset + limit - 1).execute().data or []
+
+@app.post("/input-records")
+def create_input_record(payload: InputRecordIn, auth = Depends(verify_token)):
+    row = supabase.table("input_records").insert({
+        "farm_id": auth["farm_id"],
+        "input_date": payload.input_date.isoformat(),
+        "input_type": payload.input_type,
+        "product_name": payload.product_name,
+        "rate": payload.rate,
+        "unit": payload.unit,
+        "operator": payload.operator,
+        "grow_room": payload.grow_room,
+        "batch_record_id": payload.batch_record_id,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.patch("/input-records/{record_id}")
+def update_input_record(record_id: str, payload: InputRecordUpdate, auth = Depends(verify_token)):
+    check = auth["client"].table("input_records") \
+        .select("id") \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="input record not found")
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if "input_date" in updates:
+        updates["input_date"] = str(updates["input_date"])
+    if not updates:
+        raise HTTPException(status_code=422, detail="no fields to update")
+    row = supabase.table("input_records").update(updates) \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return row.data[0]
+
+@app.delete("/input-records/{record_id}")
+def delete_input_record(record_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("input_records") \
+        .select("id") \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="input record not found")
+    supabase.table("input_records") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return {"deleted": record_id}

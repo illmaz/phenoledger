@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Trash2, Plus, FileDown, Loader } from 'lucide-react'
 import { Panel, Grid, StatCard, Badge } from '../ui'
-import { fetchAllStrains, fetchBatchRecords, createBatchRecord, deleteBatchRecord, downloadBatchReport } from '../../api'
+import { fetchAllStrains, fetchSeedLots, fetchMotherPlants, fetchTrials, fetchBatchRecords, createBatchRecord, deleteBatchRecord, downloadBatchReport } from '../../api'
 
 const STATUSES = ['planning', 'growing', 'harvested', 'tested', 'complete']
 
@@ -32,7 +32,7 @@ function shortId(id) {
 
 // ── BatchForm ─────────────────────────────────────────────────────────────────
 
-function BatchForm({ strains, onSaved, onCancel }) {
+function BatchForm({ strains, seedLots, motherPlants, trials, onSaved, onCancel }) {
   const EMPTY = {
     batch_code: '', strain_id: '', status: 'planning',
     seed_lot_id: '', mother_plant_id: '', trial_id: '', notes: '',
@@ -107,11 +107,10 @@ function BatchForm({ strains, onSaved, onCancel }) {
           </div>
           <div>
             <label style={lbl}>Seed Lot</label>
-            <input
-              style={inp} value={form.seed_lot_id}
-              onChange={e => set('seed_lot_id', e.target.value)}
-              placeholder="Seed lot ID or code"
-            />
+            <select style={inp} value={form.seed_lot_id} onChange={e => set('seed_lot_id', e.target.value)}>
+              <option value="">— None —</option>
+              {seedLots.map(l => <option key={l.id} value={l.id}>{l.lot_code}</option>)}
+            </select>
           </div>
         </div>
 
@@ -119,19 +118,17 @@ function BatchForm({ strains, onSaved, onCancel }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={lbl}>Mother Plant</label>
-            <input
-              style={inp} value={form.mother_plant_id}
-              onChange={e => set('mother_plant_id', e.target.value)}
-              placeholder="Mother plant ID or code"
-            />
+            <select style={inp} value={form.mother_plant_id} onChange={e => set('mother_plant_id', e.target.value)}>
+              <option value="">— None —</option>
+              {motherPlants.map(p => <option key={p.id} value={p.id}>{p.plant_code}</option>)}
+            </select>
           </div>
           <div>
             <label style={lbl}>Trial</label>
-            <input
-              style={inp} value={form.trial_id}
-              onChange={e => set('trial_id', e.target.value)}
-              placeholder="Trial ID or code"
-            />
+            <select style={inp} value={form.trial_id} onChange={e => set('trial_id', e.target.value)}>
+              <option value="">— None —</option>
+              {trials.map(t => <option key={t.id} value={t.id}>{t.location_name || t.id}</option>)}
+            </select>
           </div>
         </div>
 
@@ -280,9 +277,12 @@ function BatchRow({ record, onDelete, last }) {
 
 export default function BatchRecords() {
   const [records, setRecords]         = useState(null)
-  const [strains, setStrains]         = useState([])
-  const [showForm, setShowForm]       = useState(false)
-  const [actionError, setActionError] = useState(null)
+  const [strains, setStrains]           = useState([])
+  const [seedLots, setSeedLots]         = useState([])
+  const [motherPlants, setMotherPlants] = useState([])
+  const [trials, setTrials]             = useState([])
+  const [showForm, setShowForm]         = useState(false)
+  const [actionError, setActionError]   = useState(null)
 
   async function loadRecords() {
     try {
@@ -296,6 +296,9 @@ export default function BatchRecords() {
   useEffect(() => {
     loadRecords()
     fetchAllStrains().then(setStrains).catch(() => {})
+    fetchSeedLots().then(setSeedLots).catch(() => {})
+    fetchMotherPlants().then(setMotherPlants).catch(() => {})
+    fetchTrials().then(setTrials).catch(() => {})
   }, [])
 
   async function handleDelete(id) {
@@ -322,6 +325,9 @@ export default function BatchRecords() {
       {showForm ? (
         <BatchForm
           strains={strains}
+          seedLots={seedLots}
+          motherPlants={motherPlants}
+          trials={trials}
           onSaved={async () => { await loadRecords(); setShowForm(false) }}
           onCancel={() => setShowForm(false)}
         />
