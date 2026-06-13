@@ -5,9 +5,9 @@ import {
 } from 'lucide-react'
 
 const NAV = [
-  { id: 'overview',          label: 'Overview',          Icon: LayoutDashboard },
-  { id: 'strains',           label: 'Strains',           Icon: Dna             },
-  { id: 'coa-library',       label: 'COA Library',       Icon: FlaskConical    },
+  { id: 'overview',          label: 'Overview',          Icon: LayoutDashboard, primary: true },
+  { id: 'strains',           label: 'Strains',           Icon: Dna,             primary: true },
+  { id: 'coa-library',       label: 'COA Library',       Icon: FlaskConical,    primary: true },
   { divider: true },
   { id: 'lineage',           label: 'Lineage Tree',      Icon: GitBranch       },
   { id: 'mother-plants',     label: 'Mother Plants',     Icon: Leaf            },
@@ -46,7 +46,7 @@ export default function Sidebar({ active, onNavigate }) {
           if (item.divider) {
             return <div key={i} style={{ height: '0.5px', background: 'var(--border)', margin: '6px 16px' }} />
           }
-          const { id, label, Icon } = item
+          const { id, label, Icon, primary } = item
           const isActive = active === id
           return (
             <button
@@ -56,8 +56,8 @@ export default function Sidebar({ active, onNavigate }) {
               onMouseLeave={() => setHovered(null)}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                padding: '6px 16px', fontSize: 12, border: 'none',
-                color: isActive ? 'var(--text)' : 'var(--text-2)',
+                padding: '6px 16px', fontSize: primary ? 12.5 : 12, border: 'none',
+                color: isActive ? 'var(--text)' : primary ? 'var(--text)' : 'var(--text-2)',
                 borderLeft: `2px solid ${isActive ? '#4ade80' : 'transparent'}`,
                 cursor: 'pointer', textAlign: 'left',
                 background: isActive

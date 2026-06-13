@@ -379,7 +379,7 @@ export default function Lineage() {
   const hasData         = hasMotherPlants || hasSeedLots
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
       {/* Strain selector */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

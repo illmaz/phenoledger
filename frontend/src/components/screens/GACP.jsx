@@ -101,7 +101,7 @@ export default function GACP() {
   const sharedStrainProps = { strains, strainsLoading }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div>
         <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>Reports</div>
         <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>

@@ -47,7 +47,7 @@ export default function Overview({ refreshKey }) {
   const ranked = [...consistency].sort((a, b) => (a.stability ?? 101) - (b.stability ?? 101))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <Grid cols={4} gap={8}>
         <StatCard
           label="Active Strains"

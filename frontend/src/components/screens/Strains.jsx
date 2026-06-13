@@ -596,60 +596,63 @@ function BatchTable({ batches }) {
         return (
           <div
             key={b.report_id}
-            style={{
-              display: 'flex', gap: 12, alignItems: 'center',
-              padding: '7px 0',
-              borderBottom: i === batches.length - 1 ? 'none' : '0.5px solid var(--border)',
-            }}
+            style={{ borderBottom: i === batches.length - 1 ? 'none' : '0.5px solid var(--border)' }}
           >
-            <span
-              onClick={b.pdf_url ? () => window.open(b.pdf_url, '_blank') : undefined}
-              style={{
-                width: 76, fontFamily: 'monospace', fontSize: 10, flexShrink: 0,
-                color: b.pdf_url ? '#60a5fa' : 'var(--text-3)',
-                cursor: b.pdf_url ? 'pointer' : 'default',
-              }}
-            >
-              {b.report_id.slice(0, 8).toUpperCase()}
-            </span>
-            <span style={{ ...cell, width: 96 }}>{fmtDate(b.date)}</span>
-            <span style={{ width: 96, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {b.lab ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
-            </span>
-            <span style={{ width: 60, textAlign: 'right', fontSize: 13, fontWeight: 500, color: thcaColor(b.thca), flexShrink: 0 }}>
-              {b.thca != null ? `${b.thca.toFixed(2)}%` : '—'}
-            </span>
-            <span style={{ width: 72, textAlign: 'right', fontSize: 11, fontWeight: 500, color: deltaColor, flexShrink: 0 }}>
-              {deltaLabel}
-            </span>
-            <span style={{ ...cell, width: 52, textAlign: 'right' }}>
-              {b.cbd != null ? `${b.cbd.toFixed(3)}%` : '—'}
-            </span>
-            <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
-              {b.top_terpene ? (
-                <>
-                  <span style={{
-                    width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                    background: terpeneColor(b.top_terpene.compound),
-                  }} />
-                  <span style={{ ...cell, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {formatTerpene(b.top_terpene.compound)}
-                  </span>
-                  <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
-                    {b.top_terpene.value_pct.toFixed(3)}%
-                  </span>
-                </>
-              ) : <span style={cell}>—</span>}
-            </span>
-            <div style={{ width: 150, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 500, color: STATUS_DOT[bStatus] ?? 'var(--text-2)' }}>
-                {score}/100
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: b.notes ? '7px 0 3px' : '7px 0' }}>
+              <span
+                onClick={b.pdf_url ? () => window.open(b.pdf_url, '_blank') : undefined}
+                style={{
+                  width: 76, fontFamily: 'monospace', fontSize: 10, flexShrink: 0,
+                  color: b.pdf_url ? '#60a5fa' : 'var(--text-3)',
+                  cursor: b.pdf_url ? 'pointer' : 'default',
+                }}
+              >
+                {b.report_id.slice(0, 8).toUpperCase()}
               </span>
-              <StatusBadgeWithTooltip status={bStatus} />
+              <span style={{ ...cell, width: 96 }}>{fmtDate(b.date)}</span>
+              <span style={{ width: 96, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {b.lab ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
+              </span>
+              <span style={{ width: 60, textAlign: 'right', fontSize: 13, fontWeight: 500, color: thcaColor(b.thca), flexShrink: 0 }}>
+                {b.thca != null ? `${b.thca.toFixed(2)}%` : '—'}
+              </span>
+              <span style={{ width: 72, textAlign: 'right', fontSize: 11, fontWeight: 500, color: deltaColor, flexShrink: 0 }}>
+                {deltaLabel}
+              </span>
+              <span style={{ ...cell, width: 52, textAlign: 'right' }}>
+                {b.cbd != null ? `${b.cbd.toFixed(3)}%` : '—'}
+              </span>
+              <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, overflow: 'hidden' }}>
+                {b.top_terpene ? (
+                  <>
+                    <span style={{
+                      width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                      background: terpeneColor(b.top_terpene.compound),
+                    }} />
+                    <span style={{ ...cell, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {formatTerpene(b.top_terpene.compound)}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0 }}>
+                      {b.top_terpene.value_pct.toFixed(3)}%
+                    </span>
+                  </>
+                ) : <span style={cell}>—</span>}
+              </span>
+              <div style={{ width: 150, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 500, color: STATUS_DOT[bStatus] ?? 'var(--text-2)' }}>
+                  {score}/100
+                </span>
+                <StatusBadgeWithTooltip status={bStatus} />
+              </div>
+              <div style={{ width: 68, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
+                <Badge variant={statusVariant(b.status)}>{statusLabel(b.status)}</Badge>
+              </div>
             </div>
-            <div style={{ width: 68, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
-              <Badge variant={statusVariant(b.status)}>{statusLabel(b.status)}</Badge>
-            </div>
+            {b.notes && (
+              <div style={{ fontSize: 11, color: 'var(--text-3)', paddingBottom: 7, lineHeight: 1.4 }}>
+                {b.notes}
+              </div>
+            )}
           </div>
         )
       })}

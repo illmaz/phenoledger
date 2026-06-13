@@ -29,10 +29,20 @@ function statusLabel(s) {
   return s ?? 'Pending'
 }
 
+const inp = {
+  padding: '6px 10px', fontSize: 12,
+  border: '0.5px solid var(--border)', borderRadius: 6,
+  background: 'var(--card)', color: 'var(--text)', outline: 'none',
+  width: '100%',
+}
+
 export default function COALibrary({ refreshKey }) {
   const [uploads, setUploads] = useState(null)
   const [totalCount, setTotalCount] = useState(null)
   const [query, setQuery] = useState('')
+  const [labFilter, setLabFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [loadingPdf, setLoadingPdf] = useState({})
   const [pdfError, setPdfError] = useState({})
 
@@ -50,10 +60,16 @@ export default function COALibrary({ refreshKey }) {
   }
 
   useEffect(() => {
-    setUploads(null)
-    fetchUploads()
-      .then(setUploads)
-      .catch(() => setUploads([]))
+    const t = setTimeout(() => {
+      setUploads(null)
+      fetchUploads({ lab: labFilter, date_from: dateFrom, date_to: dateTo })
+        .then(setUploads)
+        .catch(() => setUploads([]))
+    }, labFilter ? 400 : 0)
+    return () => clearTimeout(t)
+  }, [refreshKey, labFilter, dateFrom, dateTo])
+
+  useEffect(() => {
     fetchUploadsCount()
       .then(setTotalCount)
       .catch(() => {})
@@ -79,7 +95,7 @@ export default function COALibrary({ refreshKey }) {
   }).length
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ position: 'relative' }}>
         <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
         <input
@@ -99,6 +115,30 @@ export default function COALibrary({ refreshKey }) {
         <StatCard label="Strains"     value={uploads === null ? '—' : strainCount} />
         <StatCard label="This Month"  value={uploads === null ? '—' : thisMonth} />
       </Grid>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>Lab</label>
+          <input
+            style={inp} type="text" placeholder="Filter by lab…"
+            value={labFilter} onChange={e => setLabFilter(e.target.value)}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>From</label>
+          <input
+            style={inp} type="date"
+            value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-3)', display: 'block', marginBottom: 4 }}>To</label>
+          <input
+            style={inp} type="date"
+            value={dateTo} onChange={e => setDateTo(e.target.value)}
+          />
+        </div>
+      </div>
 
       <Panel title="All COA Records" fullWidth>
         {uploads === null ? (

@@ -34,8 +34,13 @@ export async function fetchOverview() {
   return res.json()
 }
 
-export async function fetchUploads() {
-  const res = await apiFetch(`${BASE}/uploads`, { headers: await authHeaders() })
+export async function fetchUploads(filters = {}) {
+  const params = new URLSearchParams()
+  if (filters.lab) params.set('lab', filters.lab)
+  if (filters.date_from) params.set('date_from', filters.date_from)
+  if (filters.date_to) params.set('date_to', filters.date_to)
+  const qs = params.toString()
+  const res = await apiFetch(`${BASE}/uploads${qs ? `?${qs}` : ''}`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
   return res.json()
 }
