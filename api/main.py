@@ -600,6 +600,15 @@ def compute_chemotype(compounds: dict) -> str:
         return "Type III"
     return "Type V"
 
+@app.get("/strains/all")
+def list_all_strains(auth = Depends(verify_token)):
+    rows = auth["client"].table("strains") \
+        .select("id, name") \
+        .eq("farm_id", auth["farm_id"]) \
+        .order("name") \
+        .execute()
+    return [{"strain_id": r["id"], "strain": r["name"]} for r in (rows.data or [])]
+
 @app.get("/strains")
 def list_strains(limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
     rows = auth["client"].table("strain_consistency") \
@@ -895,6 +904,8 @@ def update_mother_plant(plant_id: str, payload: MotherPlantUpdate, auth = Depend
     updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if not updates:
         raise HTTPException(status_code=422, detail="no fields to update")
+    if updates.get("hlvd_result") == "positive":
+        updates["health_status"] = "sick"
     supabase.table("mother_plants") \
         .update(updates) \
         .eq("id", plant_id) \

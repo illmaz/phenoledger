@@ -58,6 +58,12 @@ export async function fetchStrains() {
   return res.json()
 }
 
+export async function fetchAllStrains() {
+  const res = await apiFetch(`${BASE}/strains/all`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
 export async function fetchStrainCannabinoids(strainName) {
   const res = await apiFetch(`${BASE}/strain/${encodeURIComponent(strainName)}/cannabinoids`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)

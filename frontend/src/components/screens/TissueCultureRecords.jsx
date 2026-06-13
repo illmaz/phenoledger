@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Panel, Grid, StatCard, Badge } from '../ui'
-import { fetchStrains, fetchTissueCultureRecords, createTissueCultureRecord, deleteTissueCultureRecord } from '../../api'
+import { fetchAllStrains, fetchTissueCultureRecords, createTissueCultureRecord, deleteTissueCultureRecord } from '../../api'
 
 const CULTURE_TYPES   = ['meristem', 'shoot_tip', 'callus', 'protoplast', 'embryo', 'pollen']
 const VIABILITY_OPTS  = ['viable', 'degraded', 'unknown', 'destroyed']
@@ -234,7 +234,7 @@ export default function TissueCultureRecords() {
 
   useEffect(() => {
     loadRecords()
-    fetchStrains().then(setStrains).catch(() => {})
+    fetchAllStrains().then(setStrains).catch(() => {})
   }, [])
 
   async function handleDelete(id) {

@@ -234,6 +234,8 @@ function PlantRow({ plant, onDelete, onRetire, last, retiring }) {
       <div style={{ width: 80, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
         {isRetired ? (
           <Badge variant="gray">Retired</Badge>
+        ) : plant.hlvd_result === 'positive' ? (
+          <Badge variant="danger">HLVd+</Badge>
         ) : (
           <Badge variant={HEALTH_VARIANT[plant.health_status] ?? 'gray'}>
             {plant.health_status ?? '—'}

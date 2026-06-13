@@ -26,7 +26,7 @@ const SCREENS = {
   'lineage':       { bc: ['Genetic Lineage', 'Cookies & Cream F1'],Component: Lineage         },
   'mother-plants': { bc: ['Mother Plants', 'Registry'],            Component: MotherPlants    },
   'seed-lots':        { bc: ['Seed Lots', 'Registry'],               Component: SeedLots        },
-  'breeding-records': { bc: ['Breeding Records', 'Phase 2'],         Component: BreedingRecords },
+  'breeding-records': { bc: ['Breeding Records', 'Registry'],        Component: BreedingRecords },
   'trials':        { bc: ['Local Trial Data', 'Thailand'],         Component: TrialData       },
   'gacp':              { bc: ['GACP Reports', 'Compliance'],           Component: GACP                  },
   'health-screenings': { bc: ['Health Screenings', 'Compliance'],      Component: PlantHealthScreenings },

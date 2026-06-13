@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Trash2 } from 'lucide-react'
 import { Panel, Grid, StatCard, Badge } from '../ui'
-import { fetchStrains, fetchDUSTests, createDUSTest, deleteDUSTest } from '../../api'
+import { fetchAllStrains, fetchDUSTests, createDUSTest, deleteDUSTest } from '../../api'
 
 const STATUSES = ['pending', 'in_progress', 'passed', 'failed']
 const OVERALL_RESULTS = ['pending', 'pass', 'fail']
@@ -247,7 +247,7 @@ export default function DUSTests() {
 
   useEffect(() => {
     loadTests()
-    fetchStrains().then(setStrains).catch(() => {})
+    fetchAllStrains().then(setStrains).catch(() => {})
   }, [])
 
   async function handleDelete(id) {

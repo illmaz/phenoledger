@@ -87,7 +87,7 @@ export default function Overview({ refreshKey }) {
                 <span style={{ fontSize: 12, fontWeight: 600, color: stabilityColor(s.stability), flexShrink: 0, width: 36, textAlign: 'right' }}>
                   {s.stability != null ? s.stability.toFixed(1) : '—'}
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--text-3)', flexShrink: 0, width: 56, textAlign: 'right' }}>
+                <span style={{ fontSize: 11, color: s.thca != null && s.thca < 1 ? '#f87171' : 'var(--text-3)', flexShrink: 0, width: 56, textAlign: 'right' }}>
                   {s.thca != null ? s.thca.toFixed(2) + '%' : '—'}
                 </span>
               </Row>

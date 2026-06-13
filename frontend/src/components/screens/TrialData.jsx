@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, Component } from 'react'
 import { Plus, Trash2, X, ChevronLeft } from 'lucide-react'
 import { Panel, Badge, Grid, StatCard, TOOLTIP_STYLE, AXIS_TICK, GRID_COLOR } from '../ui'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
 import {
-  fetchTrials, createTrial, deleteTrial, fetchStrains,
+  fetchTrials, createTrial, deleteTrial, fetchAllStrains,
   fetchTrialDetail, fetchTrialEvents, createTrialEvent, linkTrialCOA,
   fetchStrainBatches, fetchTrialAnalyticsSummary,
 } from '../../api'
@@ -346,6 +346,38 @@ function RegisterModal({ strains, onClose, onSaved }) {
   )
 }
 
+// ── TrialDetailErrorBoundary ──────────────────────────────────────────────────
+
+class TrialDetailErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  static getDerivedStateFromError(err) {
+    return { error: err.message || 'Unknown render error' }
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <button
+            onClick={this.props.onBack}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: 12, padding: '4px 0', width: 'fit-content' }}
+          >
+            <ChevronLeft size={13} /> Back to Trials
+          </button>
+          <div style={{ fontSize: 12, color: '#f87171' }}>
+            Failed to render trial detail: {this.state.error}
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 // ── TrialDetail ───────────────────────────────────────────────────────────────
 
 function TrialDetail({ trial: initialTrial, onBack }) {
@@ -408,7 +440,7 @@ function TrialDetail({ trial: initialTrial, onBack }) {
       .catch(() => setRefreshWarn(true))
   }
 
-  const t          = detail || initialTrial
+  const t          = detail || initialTrial || {}
   const strainName = t.strains?.name ?? '—'
   const motherCode = t.mother_plants?.plant_code ?? null
 
@@ -850,7 +882,7 @@ export default function TrialData() {
 
   useEffect(() => {
     load()
-    fetchStrains().then(setStrains).catch(() => {})
+    fetchAllStrains().then(setStrains).catch(() => {})
   }, [])
 
   async function handleDelete(id) {
@@ -864,15 +896,6 @@ export default function TrialData() {
     }
   }
 
-  if (selectedTrial) {
-    return (
-      <TrialDetail
-        trial={selectedTrial}
-        onBack={() => { setSelectedTrial(null); load() }}
-      />
-    )
-  }
-
   const data = trials ?? []
 
   const filtered = useMemo(() => {
@@ -881,6 +904,18 @@ export default function TrialData() {
     if (filterGrowType !== 'all') r = r.filter(t => t.grow_type === filterGrowType)
     return r
   }, [data, filterStrain, filterGrowType])
+
+  if (selectedTrial) {
+    const handleBack = () => { setSelectedTrial(null); load() }
+    return (
+      <TrialDetailErrorBoundary onBack={handleBack}>
+        <TrialDetail
+          trial={selectedTrial}
+          onBack={handleBack}
+        />
+      </TrialDetailErrorBoundary>
+    )
+  }
 
   const uniqueStrains   = new Set(data.map(t => t.strain_id).filter(Boolean)).size
   const uniqueLocations = new Set(data.map(t => t.location_name).filter(Boolean)).size
