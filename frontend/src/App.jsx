@@ -13,6 +13,7 @@ import TrialData from './components/screens/TrialData'
 import BreedingRecords from './components/screens/BreedingRecords'
 import PlantHealthScreenings from './components/screens/PlantHealthScreenings'
 import BatchRecords from './components/screens/BatchRecords'
+import InputRecords from './components/screens/InputRecords'
 import DUSTests from './components/screens/DUSTests'
 import TissueCultureRecords from './components/screens/TissueCultureRecords'
 import GACP from './components/screens/GACP'
@@ -29,7 +30,8 @@ const SCREENS = {
   'seed-lots':        { bc: ['Seed Lots', 'Registry'],               Component: SeedLots        },
   'breeding-records': { bc: ['Breeding Records', 'Registry'],        Component: BreedingRecords },
   'trials':        { bc: ['Local Trial Data', 'Thailand'],         Component: TrialData       },
-  'batch-records': { bc: ['Batch Records', 'Production'],           Component: BatchRecords    },
+  'batch-records':  { bc: ['Batch Records', 'Production'],           Component: BatchRecords    },
+  'input-records':  { bc: ['Input Records', 'Compliance'],           Component: InputRecords    },
   'gacp':              { bc: ['GACP Reports', 'Compliance'],           Component: GACP                  },
   'health-screenings': { bc: ['Health Screenings', 'Compliance'],      Component: PlantHealthScreenings },
   'dus-tests':         { bc: ['DUS Testing', 'Compliance'],            Component: DUSTests              },

@@ -601,3 +601,52 @@ export async function deleteInputRecord(id) {
   if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
   return res.json()
 }
+
+export async function fetchSOPs(filters = {}) {
+  const params = new URLSearchParams()
+  if (filters.status) params.append('status', filters.status)
+  if (filters.category) params.append('category', filters.category)
+  const url = `${BASE}/sops${params.toString() ? '?' + params.toString() : ''}`
+  const res = await apiFetch(url, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function createSOP(data) {
+  const res = await apiFetch(`${BASE}/sops`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function updateSOP(id, data) {
+  const res = await apiFetch(`${BASE}/sops/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function deleteSOP(id) {
+  const res = await apiFetch(`${BASE}/sops/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function acknowledgeSOP(sopId, data) {
+  const res = await apiFetch(`${BASE}/sops/${encodeURIComponent(sopId)}/acknowledge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}

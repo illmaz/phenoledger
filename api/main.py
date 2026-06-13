@@ -1847,6 +1847,36 @@ def delete_breeding_record(record_id: str, auth = Depends(verify_token)):
 
 
 
+
+# ── Phase 7: SOP Management ───────────────────────────────────────────────────
+class SOPIn(BaseModel):
+    title: str = Field(..., max_length=200)
+    sop_code: str = Field(..., max_length=50)
+    version: str = Field("1.0", max_length=20)
+    category: Optional[Literal["cultivation", "harvesting", "processing", "quality_control", "health_safety", "environmental", "other"]] = None
+    status: Optional[Literal["draft", "active", "under_review", "retired"]] = "draft"
+    effective_date: Optional[date] = None
+    review_date: Optional[date] = None
+    approved_by: Optional[str] = Field(None, max_length=100)
+    document_url: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class SOPUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=200)
+    version: Optional[str] = Field(None, max_length=20)
+    category: Optional[Literal["cultivation", "harvesting", "processing", "quality_control", "health_safety", "environmental", "other"]] = None
+    status: Optional[Literal["draft", "active", "under_review", "retired"]] = None
+    effective_date: Optional[date] = None
+    review_date: Optional[date] = None
+    approved_by: Optional[str] = Field(None, max_length=100)
+    document_url: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class SOPAcknowledgmentIn(BaseModel):
+    sop_id: str
+    staff_name: str = Field(..., max_length=100)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 6: Agricultural Input Records ──────────────────────────────────────
 class InputRecordIn(BaseModel):
     input_date: date
@@ -2045,6 +2075,36 @@ def delete_tissue_culture_record(record_id: str, auth = Depends(verify_token)):
 
 
 
+
+# ── Phase 7: SOP Management ───────────────────────────────────────────────────
+class SOPIn(BaseModel):
+    title: str = Field(..., max_length=200)
+    sop_code: str = Field(..., max_length=50)
+    version: str = Field("1.0", max_length=20)
+    category: Optional[Literal["cultivation", "harvesting", "processing", "quality_control", "health_safety", "environmental", "other"]] = None
+    status: Optional[Literal["draft", "active", "under_review", "retired"]] = "draft"
+    effective_date: Optional[date] = None
+    review_date: Optional[date] = None
+    approved_by: Optional[str] = Field(None, max_length=100)
+    document_url: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class SOPUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=200)
+    version: Optional[str] = Field(None, max_length=20)
+    category: Optional[Literal["cultivation", "harvesting", "processing", "quality_control", "health_safety", "environmental", "other"]] = None
+    status: Optional[Literal["draft", "active", "under_review", "retired"]] = None
+    effective_date: Optional[date] = None
+    review_date: Optional[date] = None
+    approved_by: Optional[str] = Field(None, max_length=100)
+    document_url: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class SOPAcknowledgmentIn(BaseModel):
+    sop_id: str
+    staff_name: str = Field(..., max_length=100)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 6: Agricultural Input Records ──────────────────────────────────────
 class InputRecordIn(BaseModel):
     input_date: date
@@ -2206,6 +2266,36 @@ def batch_record_report(batch_id: str, auth = Depends(verify_token)):
         headers={"Content-Disposition": f"attachment; filename=BatchRecord_{batch_data['batch_code']}.pdf"},
     )
 
+
+# ── Phase 7: SOP Management ───────────────────────────────────────────────────
+class SOPIn(BaseModel):
+    title: str = Field(..., max_length=200)
+    sop_code: str = Field(..., max_length=50)
+    version: str = Field("1.0", max_length=20)
+    category: Optional[Literal["cultivation", "harvesting", "processing", "quality_control", "health_safety", "environmental", "other"]] = None
+    status: Optional[Literal["draft", "active", "under_review", "retired"]] = "draft"
+    effective_date: Optional[date] = None
+    review_date: Optional[date] = None
+    approved_by: Optional[str] = Field(None, max_length=100)
+    document_url: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class SOPUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=200)
+    version: Optional[str] = Field(None, max_length=20)
+    category: Optional[Literal["cultivation", "harvesting", "processing", "quality_control", "health_safety", "environmental", "other"]] = None
+    status: Optional[Literal["draft", "active", "under_review", "retired"]] = None
+    effective_date: Optional[date] = None
+    review_date: Optional[date] = None
+    approved_by: Optional[str] = Field(None, max_length=100)
+    document_url: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class SOPAcknowledgmentIn(BaseModel):
+    sop_id: str
+    staff_name: str = Field(..., max_length=100)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 6: Agricultural Input Records ──────────────────────────────────────
 @app.get("/input-records")
 def list_input_records(batch_record_id: Optional[str] = None, input_type: Optional[str] = None, limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
@@ -2273,3 +2363,100 @@ def delete_input_record(record_id: str, auth = Depends(verify_token)):
         .eq("farm_id", auth["farm_id"]) \
         .execute()
     return {"deleted": record_id}
+
+# ── Phase 7: SOP Management ───────────────────────────────────────────────────
+@app.get("/sops")
+def list_sops(status: Optional[str] = None, category: Optional[str] = None, limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
+    q = auth["client"].table("sops") \
+        .select("*, sop_acknowledgments(id, staff_name, acknowledged_at)") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .order("created_at", desc=True)
+    if status:
+        q = q.eq("status", status)
+    if category:
+        q = q.eq("category", category)
+    return q.range(offset, offset + limit - 1).execute().data or []
+
+@app.post("/sops")
+def create_sop(payload: SOPIn, auth = Depends(verify_token)):
+    existing = auth["client"].table("sops") \
+        .select("id") \
+        .eq("farm_id", auth["farm_id"]) \
+        .eq("sop_code", payload.sop_code) \
+        .eq("version", payload.version) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if existing.data:
+        raise HTTPException(status_code=409, detail=f"SOP '{payload.sop_code}' v{payload.version} already exists")
+    row = supabase.table("sops").insert({
+        "farm_id": auth["farm_id"],
+        "title": payload.title,
+        "sop_code": payload.sop_code,
+        "version": payload.version,
+        "category": payload.category,
+        "status": payload.status,
+        "effective_date": payload.effective_date.isoformat() if payload.effective_date else None,
+        "review_date": payload.review_date.isoformat() if payload.review_date else None,
+        "approved_by": payload.approved_by,
+        "document_url": payload.document_url,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.patch("/sops/{sop_id}")
+def update_sop(sop_id: str, payload: SOPUpdate, auth = Depends(verify_token)):
+    check = auth["client"].table("sops") \
+        .select("id") \
+        .eq("id", sop_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="SOP not found")
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    for date_field in ["effective_date", "review_date"]:
+        if date_field in updates:
+            updates[date_field] = str(updates[date_field])
+    if not updates:
+        raise HTTPException(status_code=422, detail="no fields to update")
+    row = supabase.table("sops").update(updates) \
+        .eq("id", sop_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return row.data[0]
+
+@app.delete("/sops/{sop_id}")
+def delete_sop(sop_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("sops") \
+        .select("id") \
+        .eq("id", sop_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="SOP not found")
+    supabase.table("sops") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", sop_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return {"deleted": sop_id}
+
+@app.post("/sops/{sop_id}/acknowledge")
+def acknowledge_sop(sop_id: str, payload: SOPAcknowledgmentIn, auth = Depends(verify_token)):
+    check = auth["client"].table("sops") \
+        .select("id") \
+        .eq("id", sop_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="SOP not found")
+    row = supabase.table("sop_acknowledgments").insert({
+        "farm_id": auth["farm_id"],
+        "sop_id": sop_id,
+        "staff_name": payload.staff_name,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
