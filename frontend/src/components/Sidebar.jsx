@@ -36,7 +36,7 @@ export default function Sidebar({ active, onNavigate }) {
       overflow: 'hidden',
     }}>
       <div style={{ padding: '14px 16px', borderBottom: '0.5px solid var(--border)' }}>
-        <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text)' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text)' }}>
           PhenoLedger
         </div>
       </div>

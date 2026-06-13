@@ -42,6 +42,7 @@ export default function Overview({ refreshKey }) {
   const consistency   = d?.consistency    ?? []
   const recentUploads = d?.recent_uploads ?? []
   const alerts        = d?.alerts         ?? []
+  const nextActions   = d?.next_actions   ?? []
 
   const ranked = [...consistency].sort((a, b) => (a.stability ?? 101) - (b.stability ?? 101))
 
@@ -112,6 +113,19 @@ export default function Overview({ refreshKey }) {
             ))
           )}
         </Panel>
+
+        {nextActions.length > 0 && (
+          <Panel title="Next Actions">
+            {nextActions.map((a, i) => (
+              <Row key={i} last={i === nextActions.length - 1}>
+                <span style={{ color: '#fbbf24', flexShrink: 0, marginRight: 8, fontSize: 13, lineHeight: 1 }}>⚠</span>
+                <span style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                  {a.message}
+                </span>
+              </Row>
+            ))}
+          </Panel>
+        )}
 
         <Panel title="Consistency Alerts">
           {d === null ? (

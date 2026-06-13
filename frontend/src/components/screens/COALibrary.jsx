@@ -12,6 +12,10 @@ function shortId(uuid) {
   return uuid?.slice(0, 8).toUpperCase() ?? '—'
 }
 
+function thcaColor(v) {
+  return v >= 1 ? '#4ade80' : '#fbbf24'
+}
+
 function statusVariant(s) {
   if (s === 'confirmed') return 'ok'
   if (s === 'failed') return 'warn'
@@ -113,6 +117,9 @@ export default function COALibrary({ refreshKey }) {
                 {u.name}
               </span>
               <Badge variant={u.lab ? 'gray' : 'gray'}>{u.lab ?? 'Unknown lab'}</Badge>
+              <span style={{ width: 56, textAlign: 'right', fontSize: 12, flexShrink: 0, color: u.thca != null ? thcaColor(u.thca) : 'var(--text-3)' }}>
+                {u.thca != null ? `${u.thca}%` : '—'}
+              </span>
               <Badge variant={statusVariant(u.status)}>{statusLabel(u.status)}</Badge>
               <span style={{ color: 'var(--text-2)', fontSize: 11, width: 90, textAlign: 'right', flexShrink: 0 }}>
                 {fmtDate(u.created_at)}
