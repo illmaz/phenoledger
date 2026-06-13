@@ -29,7 +29,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
   const [form, setForm] = useState({
     lot_code: '', strain_id: '', origin_country: '',
     import_permit_number: '', phytosanitary_cert_number: '',
-    germination_rate: '', quantity_seeds: '', arrival_date: '', status: 'active', notes: '',
+    germination_rate: '', quantity_seeds: '', arrival_date: '', viability_date: '', status: 'active', notes: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
@@ -50,6 +50,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
         germination_rate:          form.germination_rate  ? parseFloat(form.germination_rate)    : null,
         quantity_seeds:            form.quantity_seeds    ? parseInt(form.quantity_seeds, 10)    : null,
         arrival_date:              form.arrival_date               || null,
+        viability_date:            form.viability_date             || null,
         status:                    form.status                     || 'active',
         notes:                     form.notes                      || null,
       })
@@ -72,7 +73,6 @@ function RegisterModal({ strains, onClose, onSaved }) {
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
       }}
-      onClick={onClose}
     >
       <div
         style={{
@@ -80,7 +80,6 @@ function RegisterModal({ strains, onClose, onSaved }) {
           padding: '28px 28px 24px', width: 460, maxWidth: '92vw', maxHeight: '90vh',
           overflowY: 'auto', boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}
-        onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Register Seed Lot</div>
@@ -140,14 +139,20 @@ function RegisterModal({ strains, onClose, onSaved }) {
             <input style={inp} value={form.phytosanitary_cert_number} onChange={e => set('phytosanitary_cert_number', e.target.value)} placeholder="PC-2024-XXXX" />
           </div>
 
-          <div>
-            <label style={lbl}>Germination Rate (%)</label>
-            <input
-              style={inp} type="number" min="0" max="100" step="0.1"
-              value={form.germination_rate}
-              onChange={e => set('germination_rate', e.target.value)}
-              placeholder="85.0"
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Germination Rate (%)</label>
+              <input
+                style={inp} type="number" min="0" max="100" step="0.1"
+                value={form.germination_rate}
+                onChange={e => set('germination_rate', e.target.value)}
+                placeholder="85.0"
+              />
+            </div>
+            <div>
+              <label style={lbl}>Viability Date</label>
+              <input style={inp} type="date" value={form.viability_date} onChange={e => set('viability_date', e.target.value)} />
+            </div>
           </div>
 
           <div>
@@ -197,6 +202,7 @@ function EditModal({ lot, onClose, onSaved }) {
     germination_rate:          lot.germination_rate != null ? String(lot.germination_rate) : '',
     quantity_seeds:            lot.quantity_seeds   != null ? String(lot.quantity_seeds)   : '',
     arrival_date:              lot.arrival_date ? lot.arrival_date.split('T')[0] : '',
+    viability_date:            lot.viability_date ? lot.viability_date.split('T')[0] : '',
     status:                    lot.status ?? 'active',
     notes:                     lot.notes ?? '',
   })
@@ -216,6 +222,7 @@ function EditModal({ lot, onClose, onSaved }) {
         germination_rate:          form.germination_rate  ? parseFloat(form.germination_rate)  : null,
         quantity_seeds:            form.quantity_seeds    ? parseInt(form.quantity_seeds, 10)  : null,
         arrival_date:              form.arrival_date               || null,
+        viability_date:            form.viability_date             || null,
         status:                    form.status                     || null,
         notes:                     form.notes                      || null,
       })
@@ -238,7 +245,6 @@ function EditModal({ lot, onClose, onSaved }) {
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
       }}
-      onClick={onClose}
     >
       <div
         style={{
@@ -246,7 +252,6 @@ function EditModal({ lot, onClose, onSaved }) {
           padding: '28px 28px 24px', width: 460, maxWidth: '92vw', maxHeight: '90vh',
           overflowY: 'auto', boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}
-        onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
@@ -303,6 +308,13 @@ function EditModal({ lot, onClose, onSaved }) {
             <div>
               <label style={lbl}>Quantity of Seeds</label>
               <input style={inp} type="number" min="0" value={form.quantity_seeds} onChange={e => set('quantity_seeds', e.target.value)} placeholder="500" />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={lbl}>Viability Date</label>
+              <input style={inp} type="date" value={form.viability_date} onChange={e => set('viability_date', e.target.value)} />
             </div>
           </div>
 

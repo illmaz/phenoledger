@@ -4,7 +4,7 @@ import { Panel, Badge, Grid, StatCard } from '../ui'
 import CountrySelect from '../CountrySelect'
 import { fetchMotherPlants, createMotherPlant, deleteMotherPlant, retireMotherPlant, fetchStrains } from '../../api'
 
-const HEALTH_VARIANT = { healthy: 'ok', watch: 'warn', sick: 'danger' }
+const HEALTH_VARIANT = { healthy: 'ok', watch: 'warn', sick: 'danger', retired: 'gray' }
 const HLVD_VARIANT   = { negative: 'ok', positive: 'danger', pending: 'gray' }
 
 function fmtDate(iso) {
@@ -28,7 +28,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
     clone_generation: '', health_status: 'healthy',
     hlvd_tested: false, hlvd_result: 'pending',
     hlvd_test_date: '', last_cloned_date: '',
-    total_clones_taken: '', origin_country: '', notes: '',
+    total_clones_taken: '', origin_country: '', retirement_date: '', notes: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
@@ -50,6 +50,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
         hlvd_test_date:      form.hlvd_test_date      || null,
         last_cloned_date:    form.last_cloned_date     || null,
         origin_country:      form.origin_country       || null,
+        retirement_date:     form.retirement_date      || null,
         notes:               form.notes               || null,
       })
       onSaved()
@@ -71,7 +72,6 @@ function RegisterModal({ strains, onClose, onSaved }) {
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
       }}
-      onClick={onClose}
     >
       <div
         style={{
@@ -79,7 +79,6 @@ function RegisterModal({ strains, onClose, onSaved }) {
           padding: '28px 28px 24px', width: 460, maxWidth: '92vw', maxHeight: '90vh',
           overflowY: 'auto', boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
         }}
-        onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Register Mother Plant</div>
@@ -108,7 +107,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
             </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div>
               <label style={lbl}>Established Date</label>
               <input style={inp} type="date" value={form.established_date} onChange={e => set('established_date', e.target.value)} />
@@ -119,7 +118,12 @@ function RegisterModal({ strains, onClose, onSaved }) {
                 <option value="healthy">Healthy</option>
                 <option value="watch">Watch</option>
                 <option value="sick">Sick</option>
+                <option value="retired">Retired</option>
               </select>
+            </div>
+            <div>
+              <label style={lbl}>Retirement Date</label>
+              <input style={inp} type="date" value={form.retirement_date} onChange={e => set('retirement_date', e.target.value)} />
             </div>
           </div>
 

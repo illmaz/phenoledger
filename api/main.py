@@ -68,6 +68,7 @@ class SeedLotIn(BaseModel):
     germination_rate: Optional[float] = Field(None, ge=0, le=100)
     quantity_seeds: Optional[int] = Field(None, ge=0)
     arrival_date: Optional[date] = None
+    viability_date: Optional[date] = None
     notes: Optional[str] = Field(None, max_length=500)
     status: Optional[Literal["active", "exhausted", "quarantine"]] = "active"
 
@@ -77,17 +78,18 @@ class MotherPlantIn(BaseModel):
     strain_name: Optional[str] = None
     established_date: Optional[date] = None
     clone_generation: Optional[int] = Field(None, ge=0)
-    health_status: Literal["healthy", "watch", "sick"] = "healthy"
+    health_status: Literal["healthy", "watch", "sick", "retired"] = "healthy"
     hlvd_tested: bool = False
     hlvd_result: Optional[Literal["negative", "positive", "pending"]] = None
     hlvd_test_date: Optional[date] = None
     last_cloned_date: Optional[date] = None
     total_clones_taken: Optional[int] = 0
     origin_country: Optional[str] = Field(None, max_length=100)
+    retirement_date: Optional[date] = None
     notes: Optional[str] = Field(None, max_length=500)
 
 class MotherPlantUpdate(BaseModel):
-    health_status: Optional[Literal["healthy", "watch", "sick"]] = None
+    health_status: Optional[Literal["healthy", "watch", "sick", "retired"]] = None
     hlvd_result: Optional[Literal["negative", "positive", "pending"]] = None
     hlvd_test_date: Optional[date] = None
     last_cloned_date: Optional[date] = None
@@ -102,6 +104,7 @@ class SeedLotUpdate(BaseModel):
     germination_rate: Optional[float] = Field(None, ge=0, le=100)
     quantity_seeds: Optional[int] = Field(None, ge=0)
     arrival_date: Optional[date] = None
+    viability_date: Optional[date] = None
     notes: Optional[str] = Field(None, max_length=500)
     status: Optional[Literal["active", "exhausted", "quarantine"]] = None
 
@@ -179,6 +182,7 @@ class TrialIn(BaseModel):
     wet_weight_g: Optional[float] = Field(None, ge=0)
     dry_weight_g: Optional[float] = Field(None, ge=0)
     plant_count: Optional[int] = Field(None, ge=1)
+    cost_per_gram: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = Field(None, max_length=500)
     status: Optional[Literal["ongoing", "completed", "harvested"]] = "ongoing"
 
@@ -572,14 +576,17 @@ async def upload_coa(file: UploadFile, auth = Depends(verify_token)):
 
 
 @app.get("/uploads")
-def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0):
-    rows = auth["client"].table("coa_uploads") \
+def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0, lab: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None):
+    q = auth["client"].table("coa_uploads") \
         .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date, sample_name, cannabinoid_results(compound_name, value_pct))") \
         .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
-        .order("created_at", desc=True) \
-        .range(offset, offset + limit - 1) \
-        .execute()
+        .order("created_at", desc=True)
+    if date_from:
+        q = q.gte("created_at", date_from)
+    if date_to:
+        q = q.lte("created_at", date_to + "T23:59:59")
+    rows = q.range(offset, offset + limit - 1).execute()
     data: list[dict] = rows.data  # type: ignore[assignment]
     result = []
     for r in data:
@@ -589,12 +596,15 @@ def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0)
         cannabinoids = reports[0].get("cannabinoid_results") or [] if reports else []
         thca_row = next((c for c in cannabinoids if c.get("compound_name") == "THCA"), None)
         thca = round(float(thca_row["value_pct"]), 2) if thca_row and thca_row.get("value_pct") is not None else None
+        lab_display = LAB_DISPLAY.get(lab_raw, lab_raw) if lab_raw else None
+        if lab and lab_display and lab.lower() not in lab_display.lower():
+            continue
         result.append({
             "id": r["id"],
             "name": sample_name or _display_name(r["original_filename"]),
             "filename": r["original_filename"],
             "status": r["extraction_status"],
-            "lab": LAB_DISPLAY.get(lab_raw, lab_raw) if lab_raw else None,
+            "lab": lab_display,
             "created_at": reports[0].get("report_date") or r["created_at"] if reports else r["created_at"],
             "thca": thca,
         })

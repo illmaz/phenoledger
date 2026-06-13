@@ -95,11 +95,9 @@ function AddEventModal({ trialId, onClose, onSaved }) {
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-      onClick={onClose}
     >
       <div
         style={{ background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: 10, padding: '28px 28px 24px', width: 420, maxWidth: '92vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}
-        onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Add Event</div>
@@ -176,7 +174,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
     grow_medium: '', light_cycle: '',
     temperature_min: '', temperature_max: '',
     humidity_min: '', humidity_max: '',
-    wet_weight_g: '', dry_weight_g: '', notes: '',
+    wet_weight_g: '', dry_weight_g: '', cost_per_gram: '', notes: '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError]   = useState('')
@@ -204,6 +202,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
         humidity_max:    form.humidity_max    ? parseFloat(form.humidity_max)    : null,
         wet_weight_g:    form.wet_weight_g    ? parseFloat(form.wet_weight_g)    : null,
         dry_weight_g:    form.dry_weight_g    ? parseFloat(form.dry_weight_g)    : null,
+        cost_per_gram:   form.cost_per_gram   ? parseFloat(form.cost_per_gram)   : null,
         notes:           form.notes                                               || null,
       })
       onSaved()
@@ -219,11 +218,9 @@ function RegisterModal({ strains, onClose, onSaved }) {
   return (
     <div
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
-      onClick={onClose}
     >
       <div
         style={{ background: 'var(--card)', border: '0.5px solid var(--border)', borderRadius: 10, padding: '28px 28px 24px', width: 520, maxWidth: '92vw', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}
-        onClick={e => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Register Trial</div>
@@ -318,7 +315,7 @@ function RegisterModal({ strains, onClose, onSaved }) {
             </div>
           </div>
 
-          <div style={row2}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
             <div>
               <label style={lbl}>Wet Weight (g)</label>
               <input style={inp} type="number" min="0" step="0.1" value={form.wet_weight_g} onChange={e => set('wet_weight_g', e.target.value)} placeholder="1500" />
@@ -326,6 +323,10 @@ function RegisterModal({ strains, onClose, onSaved }) {
             <div>
               <label style={lbl}>Dry Weight (g)</label>
               <input style={inp} type="number" min="0" step="0.1" value={form.dry_weight_g} onChange={e => set('dry_weight_g', e.target.value)} placeholder="250" />
+            </div>
+            <div>
+              <label style={lbl}>Cost/g (THB)</label>
+              <input style={inp} type="number" min="0" step="0.01" value={form.cost_per_gram} onChange={e => set('cost_per_gram', e.target.value)} placeholder="0.00" />
             </div>
           </div>
 
