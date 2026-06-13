@@ -181,7 +181,7 @@ export async function retireMotherPlant(id) {
   const res = await apiFetch(`${BASE}/mother-plants/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', ...await authHeaders() },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ health_status: 'retired', retirement_date: new Date().toISOString().split('T')[0] }),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))

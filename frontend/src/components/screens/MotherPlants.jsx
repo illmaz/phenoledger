@@ -309,11 +309,12 @@ function PlantRow({ plant, onDelete, onRetire, last, retiring }) {
 // ── MotherPlants ──────────────────────────────────────────────────────────────
 
 export default function MotherPlants() {
-  const [plants, setPlants]           = useState(null)
-  const [strains, setStrains]         = useState([])
-  const [showModal, setShowModal]     = useState(false)
-  const [retiringId, setRetiringId]   = useState(null)
-  const [actionError, setActionError] = useState(null)
+  const [plants, setPlants]             = useState(null)
+  const [strains, setStrains]           = useState([])
+  const [showModal, setShowModal]       = useState(false)
+  const [retiringId, setRetiringId]     = useState(null)
+  const [actionError, setActionError]   = useState(null)
+  const [retireSuccess, setRetireSuccess] = useState(null)
 
   function load() {
     fetchMotherPlants().then(setPlants).catch(() => setPlants([]))
@@ -338,6 +339,7 @@ export default function MotherPlants() {
   async function handleRetire(id, code) {
     if (!window.confirm(`Retire mother plant "${code}"? It will remain visible but marked as retired.`)) return
     setActionError(null)
+    setRetireSuccess(null)
     setRetiringId(id)
     try {
       await retireMotherPlant(id)
@@ -345,6 +347,8 @@ export default function MotherPlants() {
         ? prev.map(p => p.id === id ? { ...p, retired_at: new Date().toISOString() } : p)
         : prev
       )
+      setRetireSuccess(code)
+      setTimeout(() => setRetireSuccess(null), 2500)
     } catch (err) {
       setActionError(`Failed to retire "${code}": ${err.message}`)
     } finally {
@@ -379,6 +383,9 @@ export default function MotherPlants() {
 
       {actionError && (
         <div style={{ fontSize: 12, color: '#f87171' }}>{actionError}</div>
+      )}
+      {retireSuccess && (
+        <div style={{ fontSize: 12, color: '#4ade80' }}>"{retireSuccess}" has been retired.</div>
       )}
 
       {/* Stats */}

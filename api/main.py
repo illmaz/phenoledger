@@ -379,7 +379,7 @@ def overview(auth = Depends(verify_token)):
     # next actions — mother plants overdue for health screening (90+ days)
     ninety_days_ago = (datetime.now(tz.utc) - timedelta(days=90)).date().isoformat()
     mp_rows = client.table("mother_plants") \
-        .select("plant_code, strain_id") \
+        .select("id, plant_code, strain_id") \
         .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .execute()
@@ -809,6 +809,7 @@ def strain_batches(strain_name: str, auth = Depends(verify_token)):
             "status": upload.get("extraction_status"),
             "lab": LAB_DISPLAY.get(r.get("lab_name"), r.get("lab_name")),
             "s3_key": upload.get("s3_key"),
+            "notes": r.get("notes"),
         })
     cann_rows = auth["client"].table("cannabinoid_results") \
         .select("report_id, compound_name, value_pct") \
@@ -994,6 +995,7 @@ def create_mother_plant(payload: MotherPlantIn, auth = Depends(verify_token)):
         "total_clones_taken": payload.total_clones_taken or 0,
         "origin_country": payload.origin_country,
         "notes": payload.notes,
+        "retirement_date": payload.retirement_date.isoformat() if payload.retirement_date else None,
     }).execute()
     row_data: list[dict] = row.data  # type: ignore[assignment]
     return row_data[0] if row_data else {}
@@ -1093,6 +1095,8 @@ def create_seed_lot(payload: SeedLotIn, auth = Depends(verify_token)):
         "quantity_seeds": payload.quantity_seeds,
         "arrival_date": payload.arrival_date.isoformat() if payload.arrival_date else None,
         "notes": payload.notes,
+        "status": payload.status,
+        "viability_date": payload.viability_date.isoformat() if payload.viability_date else None,
     }).execute()
     row_data: list[dict] = row.data  # type: ignore[assignment]
     return row_data[0]
@@ -1264,6 +1268,8 @@ def create_trial(payload: TrialIn, auth = Depends(verify_token)):
         "dry_weight_g": payload.dry_weight_g,
         "plant_count": payload.plant_count,
         "notes": payload.notes,
+        "status": payload.status,
+        "cost_per_gram": payload.cost_per_gram,
     }).execute()
     row_data: list[dict] = row.data  # type: ignore[assignment]
     if not row_data:
@@ -1546,7 +1552,7 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
     batches = []
     if report_ids:
         reports = auth["client"].table("coa_reports") \
-            .select("sample_name, lab_name, report_date") \
+            .select("id, sample_name, lab_name, report_date") \
             .in_("id", report_ids) \
             .execute()
         cann = auth["client"].table("cannabinoid_results") \
@@ -1557,6 +1563,13 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
         cann_by_report: dict = {}
         for c in (cann.data or []):
             cann_by_report.setdefault(c["report_id"], {})[c["compound_name"]] = c["value_pct"]
+        stability_row = auth["client"].table("strain_consistency")\
+            .select("stability_score")\
+            .eq("farm_id", auth["farm_id"])\
+            .eq("strain_name", strain_name)\
+            .eq("compound_name", "THCA")\
+            .execute()
+        real_stability = round(float(stability_row.data[0]["stability_score"] or 0)) if stability_row.data else None
         for r in (reports.data or []):
             rid = r.get("id") or report_ids[reports.data.index(r)]
             compounds = cann_by_report.get(rid, {})
@@ -1570,7 +1583,7 @@ def gacp_batch_report(strain_name: str, auth = Depends(verify_token)):
                 "thca": thca,
                 "cbd": compounds.get("CBD"),
                 "total_thc": total_thc,
-                "stability": 100,
+                "stability": real_stability,
             })
 
     # Trials
@@ -1878,7 +1891,7 @@ def update_plant_health_screening(
     if not check.data:
         raise HTTPException(status_code=404, detail="screening not found")
     updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
-    row = supabase.table("plant_health_screenings").update(updates)         .eq("id", screening_id)         .execute()
+    row = supabase.table("plant_health_screenings").update(updates)         .eq("id", screening_id)         .eq("farm_id", auth["farm_id"])         .execute()
     return row.data[0]
 
 @app.delete("/plant-health-screenings/{screening_id}")
@@ -1925,7 +1938,7 @@ def update_dus_test(test_id: str, payload: DUSTestUpdate, auth = Depends(verify_
     if not check.data:
         raise HTTPException(status_code=404, detail="DUS test not found")
     updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
-    row = supabase.table("dus_tests").update(updates)         .eq("id", test_id)         .execute()
+    row = supabase.table("dus_tests").update(updates)         .eq("id", test_id)         .eq("farm_id", auth["farm_id"])         .execute()
     return row.data[0]
 
 @app.delete("/dus-tests/{test_id}")
@@ -1972,7 +1985,7 @@ def update_tissue_culture_record(record_id: str, payload: TissueCultureRecordUpd
     updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if "last_viability_check" in updates and updates["last_viability_check"]:
         updates["last_viability_check"] = str(updates["last_viability_check"])
-    row = supabase.table("tissue_culture_records").update(updates)         .eq("id", record_id)         .execute()
+    row = supabase.table("tissue_culture_records").update(updates)         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .execute()
     return row.data[0]
 
 @app.delete("/tissue-culture-records/{record_id}")

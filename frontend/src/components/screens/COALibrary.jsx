@@ -85,6 +85,9 @@ export default function COALibrary({ refreshKey }) {
       )
     : data
 
+  const anyFilter = !!(labFilter || dateFrom || dateTo || query)
+  const totalDisplay = uploads === null ? '—' : anyFilter ? filtered.length : (totalCount ?? '—')
+
   const labCount    = new Set(data.map(u => u.lab).filter(Boolean)).size
   const strainCount = new Set(data.map(u => u.name).filter(Boolean)).size
   const thisMonth = data.filter(u => {
@@ -110,7 +113,7 @@ export default function COALibrary({ refreshKey }) {
       </div>
 
       <Grid cols={4} gap={8}>
-        <StatCard label="Total COAs"  value={totalCount === null ? '—' : totalCount} />
+        <StatCard label="Total COAs"  value={totalDisplay} />
         <StatCard label="Labs"        value={uploads === null ? '—' : labCount} />
         <StatCard label="Strains"     value={uploads === null ? '—' : strainCount} />
         <StatCard label="This Month"  value={uploads === null ? '—' : thisMonth} />
