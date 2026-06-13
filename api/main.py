@@ -141,6 +141,7 @@ class TrialUpdate(BaseModel):
     dry_weight_g: Optional[float] = Field(None, ge=0)
     plant_count: Optional[int] = Field(None, ge=1)
     notes: Optional[str] = Field(None, max_length=500)
+    status: Optional[Literal["ongoing", "completed", "harvested"]] = None
 
 
 class COALinkIn(BaseModel):
@@ -177,6 +178,7 @@ class TrialIn(BaseModel):
     dry_weight_g: Optional[float] = Field(None, ge=0)
     plant_count: Optional[int] = Field(None, ge=1)
     notes: Optional[str] = Field(None, max_length=500)
+    status: Optional[Literal["ongoing", "completed", "harvested"]] = "ongoing"
 
 
 class PropagationUpdate(BaseModel):
