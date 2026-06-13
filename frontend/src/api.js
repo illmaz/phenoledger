@@ -754,3 +754,34 @@ export async function logVisitor(data) {
   if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
   return res.json()
 }
+
+export async function fetchPesticideResults() {
+  const res = await apiFetch(`${BASE}/pesticide-results`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function fetchExportRecords() {
+  const res = await apiFetch(`${BASE}/export-records`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function createExportRecord(data) {
+  const res = await apiFetch(`${BASE}/export-records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function deleteExportRecord(id) {
+  const res = await apiFetch(`${BASE}/export-records/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}

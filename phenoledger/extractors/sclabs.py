@@ -46,7 +46,51 @@ def extract(pdf_path: str | Path) -> dict:
                         "value_pct": value_pct,
                         "needs_review": needs_review,
                     })
-    return {"cannabinoids": cannabinoids, "terpenes": terpenes}
+    pesticides = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            tables = page.extract_tables()
+            for table in tables:
+                if not table or len(table[0]) < 3:
+                    continue
+                header_text = " ".join(str(c).lower() for c in table[0] if c)
+                is_pesticide = (
+                    "ppb" in header_text or
+                    "pesticide" in header_text or
+                    "residue" in header_text or
+                    any(k in header_text for k in ["abamectin", "bifenazate", "spiromesifen", "imidacloprid", "myclobutanil"])
+                )
+                if not is_pesticide:
+                    continue
+                for row in table[1:]:
+                    if not row or not row[0]:
+                        continue
+                    compound = str(row[0]).strip()
+                    if len(compound) < 3 or compound.lower() in ("compound", "analyte", "pesticide", "name"):
+                        continue
+                    # find ppb value and result columns
+                    value_ppb = None
+                    result = None
+                    lod = None
+                    loq = None
+                    for i, cell in enumerate(row[1:], 1):
+                        cell_str = str(cell or "").strip()
+                        if cell_str.replace(".", "").replace("<", "").replace(">", "").isdigit() and value_ppb is None:
+                            try:
+                                value_ppb = float(cell_str.replace("<", "").replace(">", ""))
+                            except Exception:
+                                pass
+                        cell_lower = cell_str.lower()
+                        if cell_lower in ("pass", "fail", "detected", "not detected", "nd", "not_detected"):
+                            result = cell_lower.replace(" ", "_")
+                    pesticides.append({
+                        "compound": compound,
+                        "value_ppb": value_ppb,
+                        "lod_ppb": lod,
+                        "loq_ppb": loq,
+                        "result": result,
+                    })
+    return {"cannabinoids": cannabinoids, "terpenes": terpenes, "pesticides": pesticides}
 
 
 def extract_header(pdf_path: str | Path) -> dict:

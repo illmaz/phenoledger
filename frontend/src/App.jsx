@@ -6,6 +6,8 @@ import Login from './components/screens/Login'
 import Overview from './components/screens/Overview'
 import Strains from './components/screens/Strains'
 import COALibrary from './components/screens/COALibrary'
+import PesticideResidues from './components/screens/PesticideResidues'
+import ExportRecords from './components/screens/ExportRecords'
 import Lineage from './components/screens/Lineage'
 import MotherPlants from './components/screens/MotherPlants'
 import SeedLots from './components/screens/SeedLots'
@@ -27,7 +29,8 @@ import APIIntegrations from './components/screens/APIIntegrations'
 const SCREENS = {
   'overview':      { bc: ['Overview', 'Dashboard'],                Component: Overview        },
   'strains':       { bc: ['Strains', 'All strains'],                Component: Strains         },
-  'coa-library':   { bc: ['COA Library', 'All records'],           Component: COALibrary      },
+  'coa-library':          { bc: ['COA Library', 'All records'],           Component: COALibrary         },
+  'pesticide-residues':   { bc: ['Pesticide Residues', 'Intelligence'],   Component: PesticideResidues  },
   'lineage':       { bc: ['Genetic Lineage', 'Cookies & Cream F1'],Component: Lineage         },
   'mother-plants': { bc: ['Mother Plants', 'Registry'],            Component: MotherPlants    },
   'seed-lots':        { bc: ['Seed Lots', 'Registry'],               Component: SeedLots        },
@@ -37,7 +40,8 @@ const SCREENS = {
   'input-records':  { bc: ['Input Records', 'Compliance'],           Component: InputRecords    },
   'sop-management': { bc: ['SOP Management', 'Compliance'],          Component: SOPManagement   },
   'environmental':  { bc: ['Environmental', 'Monitoring'],            Component: EnvironmentalMonitoring },
-  'staff-records':  { bc: ['Staff & Training', 'Records'],            Component: StaffRecords    },
+  'staff-records':   { bc: ['Staff & Training', 'Records'],            Component: StaffRecords    },
+  'export-records':  { bc: ['Export Records', 'Compliance'],           Component: ExportRecords   },
   'gacp':              { bc: ['GACP Reports', 'Compliance'],           Component: GACP                  },
   'health-screenings': { bc: ['Health Screenings', 'Compliance'],      Component: PlantHealthScreenings },
   'dus-tests':         { bc: ['DUS Testing', 'Compliance'],            Component: DUSTests              },

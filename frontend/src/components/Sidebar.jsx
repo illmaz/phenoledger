@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import {
   LayoutDashboard, Dna, FlaskConical, GitBranch, GitMerge, Leaf, Sprout,
-  TestTube2, Package, Droplets, BookOpen, Thermometer, Users, FileCheck2, Shield, Microscope, Building2, Globe, Zap,
+  TestTube2, Package, Droplets, BookOpen, Thermometer, Users, FileCheck2, Shield, Microscope, Building2, Globe, Zap, AlertTriangle, PackageCheck,
 } from 'lucide-react'
 
 const NAV = [
   { id: 'overview',          label: 'Overview',          Icon: LayoutDashboard, primary: true },
   { id: 'strains',           label: 'Strains',           Icon: Dna,             primary: true },
-  { id: 'coa-library',       label: 'COA Library',       Icon: FlaskConical,    primary: true },
+  { id: 'coa-library',         label: 'COA Library',         Icon: FlaskConical,    primary: true },
+  { id: 'pesticide-residues',  label: 'Pesticide Residues',  Icon: AlertTriangle,   primary: true },
   { divider: true },
   { id: 'lineage',           label: 'Lineage Tree',      Icon: GitBranch       },
   { id: 'mother-plants',     label: 'Mother Plants',     Icon: Leaf            },
@@ -19,7 +20,8 @@ const NAV = [
   { id: 'input-records',   label: 'Input Records',     Icon: Droplets        },
   { id: 'sop-management',  label: 'SOP Management',    Icon: BookOpen        },
   { id: 'environmental',   label: 'Environmental',     Icon: Thermometer     },
-  { id: 'staff-records',   label: 'Staff & Training',  Icon: Users           },
+  { id: 'staff-records',    label: 'Staff & Training',  Icon: Users           },
+  { id: 'export-records',   label: 'Export Records',    Icon: PackageCheck    },
   { divider: true },
   { id: 'gacp',              label: 'GACP Reports',      Icon: FileCheck2      },
   { id: 'health-screenings', label: 'Health Screenings', Icon: Shield          },

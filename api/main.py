@@ -512,6 +512,19 @@ async def upload_coa(file: UploadFile, auth = Depends(verify_token)):
                 }).execute()
             except Exception as e:
                 logging.error("Terpene insert failed: %s — %s", r["compound"], e)
+        for r in extracted.get("pesticides", []):
+            try:
+                supabase.table("pesticide_results").insert({
+                    "farm_id": auth["farm_id"],
+                    "report_id": report_id,
+                    "compound_name": r["compound"],
+                    "value_ppb": r.get("value_ppb"),
+                    "lod_ppb": r.get("lod_ppb"),
+                    "loq_ppb": r.get("loq_ppb"),
+                    "result": r.get("result"),
+                }).execute()
+            except Exception as e:
+                logging.error("Pesticide insert failed: %s — %s", r["compound"], e)
 
         if lab == LabFamily.SCLABS:
             header = sclabs_header(tmp_path)
@@ -3007,3 +3020,120 @@ def log_visitor(payload: VisitorLogIn, auth = Depends(verify_token)):
         "notes": payload.notes,
     }).execute()
     return row.data[0]
+
+
+# ── Phase 12: Export Records ──────────────────────────────────────────────────
+class ExportRecordIn(BaseModel):
+    batch_code: Optional[str] = Field(None, max_length=100)
+    strain_id: Optional[str] = None
+    destination_country: str = Field(..., max_length=100)
+    exporter_name: Optional[str] = Field(None, max_length=200)
+    export_date: Optional[date] = None
+    certificate_number: Optional[str] = Field(None, max_length=100)
+    status: Optional[Literal["pending", "approved", "shipped", "completed", "cancelled"]] = "pending"
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class ExportRecordUpdate(BaseModel):
+    batch_code: Optional[str] = Field(None, max_length=100)
+    strain_id: Optional[str] = None
+    destination_country: Optional[str] = Field(None, max_length=100)
+    exporter_name: Optional[str] = Field(None, max_length=200)
+    export_date: Optional[date] = None
+    certificate_number: Optional[str] = Field(None, max_length=100)
+    status: Optional[Literal["pending", "approved", "shipped", "completed", "cancelled"]] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+
+# ── Phase 11: Pesticide Residue Intelligence ─────────────────────────────────
+@app.get("/pesticide-results")
+def list_pesticide_results(result: Optional[str] = None, limit: int = Query(100, le=500), offset: int = 0, auth = Depends(verify_token)):
+    q = auth["client"].table("pesticide_results") \
+        .select("*, coa_reports(sample_name, lab_name, report_date, strain_id, strains(name))") \
+        .eq("farm_id", auth["farm_id"]) \
+        .order("created_at", desc=True)
+    if result:
+        q = q.eq("result", result)
+    rows = q.range(offset, offset + limit - 1).execute()
+    data = rows.data or []
+    result_list = []
+    for r in data:
+        report = r.get("coa_reports") or {}
+        strain = report.get("strains") or {}
+        result_list.append({
+            "id": r["id"],
+            "compound_name": r["compound_name"],
+            "value_ppb": r.get("value_ppb"),
+            "lod_ppb": r.get("lod_ppb"),
+            "loq_ppb": r.get("loq_ppb"),
+            "action_limit_ppb": r.get("action_limit_ppb"),
+            "result": r.get("result"),
+            "strain": strain.get("name"),
+            "lab": LAB_DISPLAY.get(report.get("lab_name"), report.get("lab_name")),
+            "report_date": report.get("report_date"),
+            "sample_name": report.get("sample_name"),
+        })
+    return result_list
+
+# ── Phase 12: Export Records ──────────────────────────────────────────────────
+@app.get("/export-records")
+def list_export_records(limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
+    rows = auth["client"].table("export_records") \
+        .select("*, strains(name)") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .order("created_at", desc=True) \
+        .range(offset, offset + limit - 1) \
+        .execute()
+    return rows.data or []
+
+@app.post("/export-records")
+def create_export_record(payload: ExportRecordIn, auth = Depends(verify_token)):
+    row = supabase.table("export_records").insert({
+        "farm_id": auth["farm_id"],
+        "batch_code": payload.batch_code,
+        "strain_id": payload.strain_id,
+        "destination_country": payload.destination_country,
+        "exporter_name": payload.exporter_name,
+        "export_date": payload.export_date.isoformat() if payload.export_date else None,
+        "certificate_number": payload.certificate_number,
+        "status": payload.status,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.patch("/export-records/{record_id}")
+def update_export_record(record_id: str, payload: ExportRecordUpdate, auth = Depends(verify_token)):
+    check = auth["client"].table("export_records") \
+        .select("id") \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="export record not found")
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if "export_date" in updates:
+        updates["export_date"] = str(updates["export_date"])
+    if not updates:
+        raise HTTPException(status_code=422, detail="no fields to update")
+    row = supabase.table("export_records").update(updates) \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return row.data[0]
+
+@app.delete("/export-records/{record_id}")
+def delete_export_record(record_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("export_records") \
+        .select("id") \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="export record not found")
+    supabase.table("export_records") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return {"deleted": record_id}
