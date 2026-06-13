@@ -703,3 +703,54 @@ export async function deleteEnvironmentalLog(id) {
   if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
   return res.json()
 }
+
+export async function fetchStaff() {
+  const res = await apiFetch(`${BASE}/staff`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function createStaff(data) {
+  const res = await apiFetch(`${BASE}/staff`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function deleteStaff(id) {
+  const res = await apiFetch(`${BASE}/staff/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function addStaffTraining(staffId, data) {
+  const res = await apiFetch(`${BASE}/staff/${encodeURIComponent(staffId)}/training`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function fetchVisitorLog() {
+  const res = await apiFetch(`${BASE}/visitor-log`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function logVisitor(data) {
+  const res = await apiFetch(`${BASE}/visitor-log`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}

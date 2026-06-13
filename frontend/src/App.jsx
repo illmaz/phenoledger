@@ -15,6 +15,7 @@ import PlantHealthScreenings from './components/screens/PlantHealthScreenings'
 import BatchRecords from './components/screens/BatchRecords'
 import InputRecords from './components/screens/InputRecords'
 import SOPManagement from './components/screens/SOPManagement'
+import EnvironmentalMonitoring from './components/screens/EnvironmentalMonitoring'
 import DUSTests from './components/screens/DUSTests'
 import TissueCultureRecords from './components/screens/TissueCultureRecords'
 import GACP from './components/screens/GACP'
@@ -34,6 +35,7 @@ const SCREENS = {
   'batch-records':  { bc: ['Batch Records', 'Production'],           Component: BatchRecords    },
   'input-records':  { bc: ['Input Records', 'Compliance'],           Component: InputRecords    },
   'sop-management': { bc: ['SOP Management', 'Compliance'],          Component: SOPManagement   },
+  'environmental':  { bc: ['Environmental', 'Monitoring'],            Component: EnvironmentalMonitoring },
   'gacp':              { bc: ['GACP Reports', 'Compliance'],           Component: GACP                  },
   'health-screenings': { bc: ['Health Screenings', 'Compliance'],      Component: PlantHealthScreenings },
   'dus-tests':         { bc: ['DUS Testing', 'Compliance'],            Component: DUSTests              },

@@ -1849,6 +1849,43 @@ def delete_breeding_record(record_id: str, auth = Depends(verify_token)):
 
 
 
+
+# ── Phase 9: Staff & Training Records ────────────────────────────────────────
+class StaffMemberIn(BaseModel):
+    name: str = Field(..., max_length=100)
+    role: Optional[str] = Field(None, max_length=100)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=50)
+    start_date: Optional[date] = None
+    status: Optional[Literal["active", "inactive"]] = "active"
+    notes: Optional[str] = Field(None, max_length=500)
+
+class StaffMemberUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    role: Optional[str] = Field(None, max_length=100)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=50)
+    start_date: Optional[date] = None
+    status: Optional[Literal["active", "inactive"]] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class StaffTrainingIn(BaseModel):
+    staff_id: str
+    sop_id: Optional[str] = None
+    training_date: date
+    trainer: Optional[str] = Field(None, max_length=100)
+    training_type: Optional[Literal["initial", "refresher", "certification"]] = "initial"
+    expiry_date: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class VisitorLogIn(BaseModel):
+    visitor_name: str = Field(..., max_length=100)
+    organization: Optional[str] = Field(None, max_length=100)
+    purpose: Optional[str] = Field(None, max_length=200)
+    visit_date: date
+    host_name: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 8: Environmental Monitoring ────────────────────────────────────────
 class GrowRoomIn(BaseModel):
     name: str = Field(..., max_length=100)
@@ -2112,6 +2149,43 @@ def delete_tissue_culture_record(record_id: str, auth = Depends(verify_token)):
 
 
 
+
+# ── Phase 9: Staff & Training Records ────────────────────────────────────────
+class StaffMemberIn(BaseModel):
+    name: str = Field(..., max_length=100)
+    role: Optional[str] = Field(None, max_length=100)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=50)
+    start_date: Optional[date] = None
+    status: Optional[Literal["active", "inactive"]] = "active"
+    notes: Optional[str] = Field(None, max_length=500)
+
+class StaffMemberUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    role: Optional[str] = Field(None, max_length=100)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=50)
+    start_date: Optional[date] = None
+    status: Optional[Literal["active", "inactive"]] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class StaffTrainingIn(BaseModel):
+    staff_id: str
+    sop_id: Optional[str] = None
+    training_date: date
+    trainer: Optional[str] = Field(None, max_length=100)
+    training_type: Optional[Literal["initial", "refresher", "certification"]] = "initial"
+    expiry_date: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class VisitorLogIn(BaseModel):
+    visitor_name: str = Field(..., max_length=100)
+    organization: Optional[str] = Field(None, max_length=100)
+    purpose: Optional[str] = Field(None, max_length=200)
+    visit_date: date
+    host_name: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 8: Environmental Monitoring ────────────────────────────────────────
 class GrowRoomIn(BaseModel):
     name: str = Field(..., max_length=100)
@@ -2338,6 +2412,43 @@ def batch_record_report(batch_id: str, auth = Depends(verify_token)):
 
 
 
+
+# ── Phase 9: Staff & Training Records ────────────────────────────────────────
+class StaffMemberIn(BaseModel):
+    name: str = Field(..., max_length=100)
+    role: Optional[str] = Field(None, max_length=100)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=50)
+    start_date: Optional[date] = None
+    status: Optional[Literal["active", "inactive"]] = "active"
+    notes: Optional[str] = Field(None, max_length=500)
+
+class StaffMemberUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    role: Optional[str] = Field(None, max_length=100)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=50)
+    start_date: Optional[date] = None
+    status: Optional[Literal["active", "inactive"]] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class StaffTrainingIn(BaseModel):
+    staff_id: str
+    sop_id: Optional[str] = None
+    training_date: date
+    trainer: Optional[str] = Field(None, max_length=100)
+    training_type: Optional[Literal["initial", "refresher", "certification"]] = "initial"
+    expiry_date: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class VisitorLogIn(BaseModel):
+    visitor_name: str = Field(..., max_length=100)
+    organization: Optional[str] = Field(None, max_length=100)
+    purpose: Optional[str] = Field(None, max_length=200)
+    visit_date: date
+    host_name: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 8: Environmental Monitoring ────────────────────────────────────────
 class GrowRoomIn(BaseModel):
     name: str = Field(..., max_length=100)
@@ -2470,6 +2581,43 @@ def delete_input_record(record_id: str, auth = Depends(verify_token)):
     return {"deleted": record_id}
 
 
+
+# ── Phase 9: Staff & Training Records ────────────────────────────────────────
+class StaffMemberIn(BaseModel):
+    name: str = Field(..., max_length=100)
+    role: Optional[str] = Field(None, max_length=100)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=50)
+    start_date: Optional[date] = None
+    status: Optional[Literal["active", "inactive"]] = "active"
+    notes: Optional[str] = Field(None, max_length=500)
+
+class StaffMemberUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    role: Optional[str] = Field(None, max_length=100)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=50)
+    start_date: Optional[date] = None
+    status: Optional[Literal["active", "inactive"]] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class StaffTrainingIn(BaseModel):
+    staff_id: str
+    sop_id: Optional[str] = None
+    training_date: date
+    trainer: Optional[str] = Field(None, max_length=100)
+    training_type: Optional[Literal["initial", "refresher", "certification"]] = "initial"
+    expiry_date: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class VisitorLogIn(BaseModel):
+    visitor_name: str = Field(..., max_length=100)
+    organization: Optional[str] = Field(None, max_length=100)
+    purpose: Optional[str] = Field(None, max_length=200)
+    visit_date: date
+    host_name: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 8: Environmental Monitoring ────────────────────────────────────────
 class GrowRoomIn(BaseModel):
     name: str = Field(..., max_length=100)
@@ -2601,6 +2749,43 @@ def acknowledge_sop(sop_id: str, payload: SOPAcknowledgmentIn, auth = Depends(ve
     }).execute()
     return row.data[0]
 
+
+# ── Phase 9: Staff & Training Records ────────────────────────────────────────
+class StaffMemberIn(BaseModel):
+    name: str = Field(..., max_length=100)
+    role: Optional[str] = Field(None, max_length=100)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=50)
+    start_date: Optional[date] = None
+    status: Optional[Literal["active", "inactive"]] = "active"
+    notes: Optional[str] = Field(None, max_length=500)
+
+class StaffMemberUpdate(BaseModel):
+    name: Optional[str] = Field(None, max_length=100)
+    role: Optional[str] = Field(None, max_length=100)
+    email: Optional[str] = Field(None, max_length=200)
+    phone: Optional[str] = Field(None, max_length=50)
+    start_date: Optional[date] = None
+    status: Optional[Literal["active", "inactive"]] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class StaffTrainingIn(BaseModel):
+    staff_id: str
+    sop_id: Optional[str] = None
+    training_date: date
+    trainer: Optional[str] = Field(None, max_length=100)
+    training_type: Optional[Literal["initial", "refresher", "certification"]] = "initial"
+    expiry_date: Optional[date] = None
+    notes: Optional[str] = Field(None, max_length=500)
+
+class VisitorLogIn(BaseModel):
+    visitor_name: str = Field(..., max_length=100)
+    organization: Optional[str] = Field(None, max_length=100)
+    purpose: Optional[str] = Field(None, max_length=200)
+    visit_date: date
+    host_name: Optional[str] = Field(None, max_length=100)
+    notes: Optional[str] = Field(None, max_length=500)
+
 # ── Phase 8: Environmental Monitoring ────────────────────────────────────────
 @app.get("/grow-rooms")
 def list_grow_rooms(auth = Depends(verify_token)):
@@ -2699,3 +2884,126 @@ def delete_environmental_log(log_id: str, auth = Depends(verify_token)):
         .eq("farm_id", auth["farm_id"]) \
         .execute()
     return {"deleted": log_id}
+
+# ── Phase 9: Staff & Training Records ────────────────────────────────────────
+@app.get("/staff")
+def list_staff(auth = Depends(verify_token)):
+    rows = auth["client"].table("staff_members") \
+        .select("*, staff_training(id, training_date, expiry_date, sop_id, training_type, sops(title))") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .order("name") \
+        .execute()
+    return rows.data or []
+
+@app.post("/staff")
+def create_staff(payload: StaffMemberIn, auth = Depends(verify_token)):
+    row = supabase.table("staff_members").insert({
+        "farm_id": auth["farm_id"],
+        "name": payload.name,
+        "role": payload.role,
+        "email": payload.email,
+        "phone": payload.phone,
+        "start_date": payload.start_date.isoformat() if payload.start_date else None,
+        "status": payload.status,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.patch("/staff/{staff_id}")
+def update_staff(staff_id: str, payload: StaffMemberUpdate, auth = Depends(verify_token)):
+    check = auth["client"].table("staff_members") \
+        .select("id") \
+        .eq("id", staff_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="staff member not found")
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if "start_date" in updates:
+        updates["start_date"] = str(updates["start_date"])
+    if not updates:
+        raise HTTPException(status_code=422, detail="no fields to update")
+    row = supabase.table("staff_members").update(updates) \
+        .eq("id", staff_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return row.data[0]
+
+@app.delete("/staff/{staff_id}")
+def delete_staff(staff_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("staff_members") \
+        .select("id") \
+        .eq("id", staff_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="staff member not found")
+    supabase.table("staff_members") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", staff_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return {"deleted": staff_id}
+
+@app.post("/staff/{staff_id}/training")
+def add_training(staff_id: str, payload: StaffTrainingIn, auth = Depends(verify_token)):
+    check = auth["client"].table("staff_members") \
+        .select("id") \
+        .eq("id", staff_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="staff member not found")
+    row = supabase.table("staff_training").insert({
+        "farm_id": auth["farm_id"],
+        "staff_id": staff_id,
+        "sop_id": payload.sop_id,
+        "training_date": payload.training_date.isoformat(),
+        "trainer": payload.trainer,
+        "training_type": payload.training_type,
+        "expiry_date": payload.expiry_date.isoformat() if payload.expiry_date else None,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.delete("/staff/training/{training_id}")
+def delete_training(training_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("staff_training") \
+        .select("id") \
+        .eq("id", training_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="training record not found")
+    supabase.table("staff_training") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", training_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return {"deleted": training_id}
+
+@app.get("/visitor-log")
+def list_visitors(auth = Depends(verify_token)):
+    rows = auth["client"].table("visitor_log") \
+        .select("*") \
+        .eq("farm_id", auth["farm_id"]) \
+        .order("visit_date", desc=True) \
+        .execute()
+    return rows.data or []
+
+@app.post("/visitor-log")
+def log_visitor(payload: VisitorLogIn, auth = Depends(verify_token)):
+    row = supabase.table("visitor_log").insert({
+        "farm_id": auth["farm_id"],
+        "visitor_name": payload.visitor_name,
+        "organization": payload.organization,
+        "purpose": payload.purpose,
+        "visit_date": payload.visit_date.isoformat(),
+        "host_name": payload.host_name,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
