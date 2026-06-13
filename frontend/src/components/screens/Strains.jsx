@@ -97,6 +97,11 @@ function colorFor(compound) {
   return '#888888'
 }
 
+function thcaColor(thca) {
+  if (thca == null) return '#4ade80'
+  return thca >= 1 ? '#4ade80' : '#fbbf24'
+}
+
 const TERPENE_DISPLAY = {
   'BETA-CARYOPHYLLENE': 'β-Caryophyllene',
   'ALPHA-HUMULENE':     'α-Humulene',
@@ -204,13 +209,13 @@ function StrainCard({ strain, thca, status, stability, chemotype, onClick, onDel
         )}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 10 }}>
-        <span style={{ fontSize: 22, fontWeight: 500, color: '#4ade80' }}>
+        <span style={{ fontSize: 22, fontWeight: 500, color: thcaColor(thca) }}>
           {thca != null ? thca.toFixed(2) : '—'}
         </span>
         <span style={{ fontSize: 10, color: 'var(--text-2)' }}>% THCA</span>
       </div>
       <div style={{ height: 3, background: 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
-        <div style={{ height: '100%', width: `${barWidth}%`, background: '#4ade80', borderRadius: 3 }} />
+        <div style={{ height: '100%', width: `${barWidth}%`, background: thcaColor(thca), borderRadius: 3 }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, fontSize: 10 }}>
         <span style={{ color: 'var(--text-3)' }}>Batch Stability</span>
@@ -267,7 +272,7 @@ function StrainRow({ strain, thca, upload_count, status, stability, chemotype, l
       <span style={{ flex: 1, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {strain}
       </span>
-      <span style={{ fontSize: 13, fontWeight: 500, color: '#4ade80', width: 64, textAlign: 'right', flexShrink: 0 }}>
+      <span style={{ fontSize: 13, fontWeight: 500, color: thcaColor(thca), width: 64, textAlign: 'right', flexShrink: 0 }}>
         {thca != null ? `${thca.toFixed(2)}%` : '—'}
       </span>
       <span style={{ fontSize: 11, color: 'var(--text-3)', width: 68, textAlign: 'right', flexShrink: 0 }}>
@@ -579,7 +584,7 @@ function BatchTable({ batches }) {
               {b.report_id.slice(0, 8).toUpperCase()}
             </span>
             <span style={{ ...cell, width: 96 }}>{fmtDate(b.date)}</span>
-            <span style={{ width: 60, textAlign: 'right', fontSize: 13, fontWeight: 500, color: '#4ade80', flexShrink: 0 }}>
+            <span style={{ width: 60, textAlign: 'right', fontSize: 13, fontWeight: 500, color: thcaColor(b.thca), flexShrink: 0 }}>
               {b.thca != null ? `${b.thca.toFixed(2)}%` : '—'}
             </span>
             <span style={{ width: 72, textAlign: 'right', fontSize: 11, fontWeight: 500, color: deltaColor, flexShrink: 0 }}>

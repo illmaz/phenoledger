@@ -189,7 +189,7 @@ function DUSRow({ record, onDelete, last }) {
       <span style={{ flex: 1, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
         {strainName}
       </span>
-      <span style={{ width: 110, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span title={record.testing_body ?? undefined} style={{ width: 110, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {record.testing_body ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
       </span>
       <span style={{ width: 90, fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>

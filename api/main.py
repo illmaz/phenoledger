@@ -308,7 +308,7 @@ def overview(auth = Depends(verify_token)):
     coa_count = count_rows.count or 0
 
     uploads_rows = client.table("coa_uploads") \
-        .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date)") \
+        .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date, sample_name)") \
         .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
@@ -319,9 +319,10 @@ def overview(auth = Depends(verify_token)):
     for r in uploads_data:
         reports = r.get("coa_reports") or []
         lab_raw = reports[0]["lab_name"] if reports else None
+        sample_name = reports[0].get("sample_name") if reports else None
         recent_uploads.append({
             "id": r["id"],
-            "name": _display_name(r["original_filename"]),
+            "name": sample_name or _display_name(r["original_filename"]),
             "status": r["extraction_status"],
             "lab": LAB_DISPLAY.get(lab_raw, lab_raw) if lab_raw else None,
             "created_at": reports[0].get("report_date") or r["created_at"] if reports else r["created_at"],
@@ -531,9 +532,10 @@ def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0)
     for r in data:
         reports = r.get("coa_reports") or []
         lab_raw = reports[0]["lab_name"] if reports else None
+        sample_name = reports[0].get("sample_name") if reports else None
         result.append({
             "id": r["id"],
-            "name": _display_name(r["original_filename"]),
+            "name": sample_name or _display_name(r["original_filename"]),
             "filename": r["original_filename"],
             "status": r["extraction_status"],
             "lab": LAB_DISPLAY.get(lab_raw, lab_raw) if lab_raw else None,

@@ -14,7 +14,7 @@ function fmtGerm(rate) {
   return `${parseFloat(rate).toFixed(1)}%`
 }
 
-function truncate(str, max = 14) {
+function truncate(str, max = 20) {
   if (!str) return '—'
   return str.length > max ? str.slice(0, max) + '…' : str
 }
