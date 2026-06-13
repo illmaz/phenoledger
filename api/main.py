@@ -3137,3 +3137,94 @@ def delete_export_record(record_id: str, auth = Depends(verify_token)):
         .eq("farm_id", auth["farm_id"]) \
         .execute()
     return {"deleted": record_id}
+
+# ── GACP Compliance Checklist ─────────────────────────────────────────────────
+@app.get("/compliance-checklist/{strain_name}")
+def compliance_checklist(strain_name: str, auth = Depends(verify_token)):
+    from datetime import datetime, timedelta, timezone as tz
+    client = auth["client"]
+    farm_id = auth["farm_id"]
+    ninety_days_ago = (datetime.now(tz.utc) - timedelta(days=90)).date().isoformat()
+    checks = []
+
+    # 1. Strain exists
+    strain_row = client.table("strains").select("id").eq("farm_id", farm_id).eq("name", strain_name).is_("deleted_at", "null").execute()
+    if not strain_row.data:
+        raise HTTPException(status_code=404, detail="strain not found")
+    strain_id = strain_row.data[0]["id"]
+
+    # 2. Seed lot with import permit
+    seed_lots = client.table("seed_lots").select("id, import_permit_number, phytosanitary_cert_number").eq("farm_id", farm_id).eq("strain_id", strain_id).is_("deleted_at", "null").execute()
+    has_seed_lot = bool(seed_lots.data)
+    has_import_permit = any(r.get("import_permit_number") for r in (seed_lots.data or []))
+    has_phyto_cert = any(r.get("phytosanitary_cert_number") for r in (seed_lots.data or []))
+    checks.append({"id": "seed_lot", "label": "Seed lot registered", "passed": has_seed_lot, "severity": "high", "message": None if has_seed_lot else "No seed lot found for this strain"})
+    checks.append({"id": "import_permit", "label": "Import permit on file", "passed": has_import_permit, "severity": "high", "message": None if has_import_permit else "Seed lot missing import permit number"})
+    checks.append({"id": "phyto_cert", "label": "Phytosanitary certificate on file", "passed": has_phyto_cert, "severity": "medium", "message": None if has_phyto_cert else "Seed lot missing phytosanitary certificate"})
+
+    # 3. Mother plant records
+    mother_plants = client.table("mother_plants").select("id, plant_code, hlvd_tested, hlvd_result, health_status").eq("farm_id", farm_id).eq("strain_id", strain_id).is_("deleted_at", "null").execute()
+    has_mother = bool(mother_plants.data)
+    all_hlvd_tested = all(r.get("hlvd_tested") for r in (mother_plants.data or []))
+    any_hlvd_positive = any(r.get("hlvd_result") == "positive" for r in (mother_plants.data or []))
+    checks.append({"id": "mother_plant", "label": "Mother plant registered", "passed": has_mother, "severity": "high", "message": None if has_mother else "No mother plant found for this strain"})
+    checks.append({"id": "hlvd_tested", "label": "All mother plants HLVd tested", "passed": has_mother and all_hlvd_tested, "severity": "high", "message": None if (has_mother and all_hlvd_tested) else "One or more mother plants missing HLVd test result"})
+    checks.append({"id": "hlvd_negative", "label": "No HLVd positive mother plants", "passed": not any_hlvd_positive, "severity": "critical", "message": None if not any_hlvd_positive else "One or more mother plants tested HLVd positive — quarantine required"})
+
+    # 4. COA records
+    report_ids_row = client.table("coa_reports").select("id, report_date").eq("farm_id", farm_id).eq("strain_id", strain_id).is_("deleted_at", "null").order("report_date", desc=True).execute()
+    has_coa = bool(report_ids_row.data)
+    latest_report_date = report_ids_row.data[0]["report_date"] if report_ids_row.data else None
+    recent_coa = latest_report_date and latest_report_date >= ninety_days_ago
+    checks.append({"id": "coa_uploaded", "label": "COA on file", "passed": has_coa, "severity": "critical", "message": None if has_coa else "No Certificate of Analysis found for this strain"})
+    checks.append({"id": "coa_recent", "label": "COA tested within 90 days", "passed": bool(recent_coa), "severity": "high", "message": None if recent_coa else f"Last COA dated {latest_report_date} — retesting recommended" if latest_report_date else "No COA on file"})
+
+    # 5. Consistency status
+    consistency_row = client.table("strain_consistency").select("status, stability_score").eq("farm_id", farm_id).eq("strain_name", strain_name).eq("compound_name", "THCA").execute()
+    status = consistency_row.data[0]["status"] if consistency_row.data else None
+    not_drifting = status not in ("drift",)
+    checks.append({"id": "consistency", "label": "Strain consistency stable", "passed": not_drifting, "severity": "medium", "message": None if not_drifting else f"Strain THCA consistency status is {status} — investigate batch variation"})
+
+    # 6. Trial/grow conditions recorded
+    trials = client.table("trials").select("id").eq("farm_id", farm_id).eq("strain_id", strain_id).is_("deleted_at", "null").execute()
+    has_trial = bool(trials.data)
+    checks.append({"id": "trial", "label": "Growing conditions recorded", "passed": has_trial, "severity": "medium", "message": None if has_trial else "No trial/grow conditions recorded for this strain"})
+
+    # 7. Input records
+    input_rows = client.table("input_records").select("id").eq("farm_id", farm_id).is_("deleted_at", "null").limit(1).execute()
+    has_inputs = bool(input_rows.data)
+    checks.append({"id": "input_records", "label": "Agricultural input records on file", "passed": has_inputs, "severity": "high", "message": None if has_inputs else "No fertilizer or pesticide input records found"})
+
+    # 8. SOPs
+    sops = client.table("sops").select("id, status, review_date").eq("farm_id", farm_id).eq("status", "active").is_("deleted_at", "null").execute()
+    has_active_sop = bool(sops.data)
+    from datetime import date
+    today = date.today().isoformat()
+    overdue_sops = [r for r in (sops.data or []) if r.get("review_date") and r["review_date"] < today]
+    checks.append({"id": "sops", "label": "Active SOPs registered", "passed": has_active_sop, "severity": "high", "message": None if has_active_sop else "No active SOPs found — GACP requires documented procedures"})
+    checks.append({"id": "sop_review", "label": "No SOPs overdue for review", "passed": not overdue_sops, "severity": "medium", "message": None if not overdue_sops else f"{len(overdue_sops)} SOP(s) overdue for review"})
+
+    # 9. Staff training
+    staff_training = client.table("staff_training").select("id").eq("farm_id", farm_id).is_("deleted_at", "null").limit(1).execute()
+    has_training = bool(staff_training.data)
+    checks.append({"id": "staff_training", "label": "Staff training records on file", "passed": has_training, "severity": "medium", "message": None if has_training else "No staff training records found"})
+
+    # 10. Environmental logs (last 30 days)
+    thirty_days_ago = (datetime.now(tz.utc) - timedelta(days=30)).date().isoformat()
+    env_logs = client.table("environmental_logs").select("id").eq("farm_id", farm_id).gte("log_date", thirty_days_ago).is_("deleted_at", "null").limit(1).execute()
+    has_env_logs = bool(env_logs.data)
+    checks.append({"id": "env_logs", "label": "Environmental logs in last 30 days", "passed": has_env_logs, "severity": "medium", "message": None if has_env_logs else "No environmental logs in the last 30 days"})
+
+    passed = sum(1 for c in checks if c["passed"])
+    total = len(checks)
+    critical_failures = [c for c in checks if not c["passed"] and c["severity"] == "critical"]
+    
+    return {
+        "strain": strain_name,
+        "score": passed,
+        "total": total,
+        "percent": round(passed / total * 100),
+        "ready": len(critical_failures) == 0,
+        "critical_failures": len(critical_failures),
+        "checks": checks,
+    }
