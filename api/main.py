@@ -431,6 +431,13 @@ async def upload_coa(file: UploadFile, auth = Depends(verify_token)):
 
     if not contents.startswith(b"%PDF"):
         raise HTTPException(status_code=400, detail="File is not a valid PDF")
+    try:
+        import pdfplumber, io
+        with pdfplumber.open(io.BytesIO(contents)) as _pdf_check:
+            if not _pdf_check.pages:
+                raise ValueError("empty PDF")
+    except Exception:
+        raise HTTPException(status_code=400, detail="File is not a valid or readable PDF")
 
     content_hash = hashlib.sha256(contents).hexdigest()
     existing = supabase.table("coa_uploads") \
@@ -2899,10 +2906,18 @@ def compliance_checklist(strain_name: str, auth = Depends(verify_token)):
     has_trial = bool(trials.data)
     checks.append({"id": "trial", "label": "Growing conditions recorded", "passed": has_trial, "severity": "medium", "message": None if has_trial else "No trial/grow conditions recorded for this strain"})
 
-    # 7. Input records
-    input_rows = client.table("input_records").select("id").eq("farm_id", farm_id).is_("deleted_at", "null").limit(1).execute()
-    has_inputs = bool(input_rows.data)
-    checks.append({"id": "input_records", "label": "Agricultural input records on file", "passed": has_inputs, "severity": "high", "message": None if has_inputs else "No fertilizer or pesticide input records found"})
+    # 7. Input records — scoped to this strain's batch records if any exist, else farm-wide fallback
+    strain_batches = client.table("batch_records").select("id").eq("farm_id", farm_id).eq("strain_id", strain_id).is_("deleted_at", "null").execute()
+    if strain_batches.data:
+        batch_ids = [r["id"] for r in strain_batches.data]
+        input_rows = client.table("input_records").select("id").eq("farm_id", farm_id).in_("batch_record_id", batch_ids).is_("deleted_at", "null").limit(1).execute()
+        has_inputs = bool(input_rows.data)
+        input_msg = None if has_inputs else "No input records linked to this strain's batch records"
+    else:
+        input_rows = client.table("input_records").select("id").eq("farm_id", farm_id).is_("deleted_at", "null").limit(1).execute()
+        has_inputs = bool(input_rows.data)
+        input_msg = None if has_inputs else "No fertilizer or pesticide input records found"
+    checks.append({"id": "input_records", "label": "Agricultural input records on file", "passed": has_inputs, "severity": "high", "message": input_msg})
 
     # 8. SOPs
     sops = client.table("sops").select("id, status, review_date").eq("farm_id", farm_id).eq("status", "active").is_("deleted_at", "null").execute()
@@ -2916,7 +2931,7 @@ def compliance_checklist(strain_name: str, auth = Depends(verify_token)):
     # 9. Staff training
     staff_training = client.table("staff_training").select("id").eq("farm_id", farm_id).is_("deleted_at", "null").limit(1).execute()
     has_training = bool(staff_training.data)
-    checks.append({"id": "staff_training", "label": "Staff training records on file", "passed": has_training, "severity": "medium", "message": None if has_training else "No staff training records found"})
+    checks.append({"id": "staff_training", "label": "Staff training records on file (farm-wide)", "passed": has_training, "severity": "medium", "message": None if has_training else "No staff training records found"})
 
     # 10. Environmental logs (last 30 days)
     thirty_days_ago = (datetime.now(tz.utc) - timedelta(days=30)).date().isoformat()

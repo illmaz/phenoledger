@@ -221,17 +221,22 @@ function BatchRow({ record, onDelete, last }) {
           {STATUS_LABEL[record.status] ?? record.status ?? '—'}
         </Badge>
       </span>
-      <span style={{ width: 90, fontSize: 11, color: 'var(--text-3)', flexShrink: 0, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {record.seed_lot_id ? shortId(record.seed_lot_id) : <span style={{ color: 'var(--text-3)' }}>—</span>}
+      <span style={{ width: 90, fontSize: 11, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {record.seed_lots?.lot_code ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
       </span>
-      <span style={{ width: 90, fontSize: 11, color: 'var(--text-3)', flexShrink: 0, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {record.mother_plant_id ? shortId(record.mother_plant_id) : <span style={{ color: 'var(--text-3)' }}>—</span>}
+      <span style={{ width: 90, fontSize: 11, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {record.mother_plants?.plant_code ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
       </span>
-      <span style={{ width: 80, fontSize: 11, color: 'var(--text-3)', flexShrink: 0, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {record.trial_id ? shortId(record.trial_id) : <span style={{ color: 'var(--text-3)' }}>—</span>}
+      <span style={{ width: 80, fontSize: 11, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {record.trials?.location_name ?? record.trials?.grow_type ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
       </span>
-      <span style={{ width: 80, fontSize: 11, color: 'var(--text-3)', flexShrink: 0, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {record.coa_report_id ? shortId(record.coa_report_id) : <span style={{ color: 'var(--text-3)' }}>—</span>}
+      <span
+        title={record.coa_reports ? [record.coa_reports.sample_name, record.coa_reports.lab_name, fmtDate(record.coa_reports.report_date)].filter(Boolean).join(' · ') : undefined}
+        style={{ width: 80, fontSize: 11, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+      >
+        {record.coa_reports
+          ? (record.coa_reports.sample_name ?? record.coa_reports.lab_name ?? fmtDate(record.coa_reports.report_date) ?? '—')
+          : <span style={{ color: 'var(--text-3)' }}>—</span>}
       </span>
       <span style={{ width: 90, fontSize: 11, color: 'var(--text-2)', flexShrink: 0 }}>
         {fmtDate(record.created_at)}
