@@ -761,6 +761,14 @@ export async function fetchPesticideResults() {
   return res.json()
 }
 
+export async function fetchComplianceChecklist(strainName) {
+  const res = await apiFetch(`${BASE}/reports/compliance-checklist/${encodeURIComponent(strainName)}`, {
+    headers: await authHeaders(),
+  })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
 export async function fetchExportRecords() {
   const res = await apiFetch(`${BASE}/export-records`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)

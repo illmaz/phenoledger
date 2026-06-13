@@ -1,12 +1,123 @@
 import { useState, useEffect } from 'react'
-import { FileDown } from 'lucide-react'
+import { FileDown, CheckCircle2, XCircle } from 'lucide-react'
+import { Badge } from '../ui'
 import {
   fetchStrains,
+  fetchComplianceChecklist,
   downloadGACPReport,
   downloadStrainPerformanceReport,
   downloadImportSummaryReport,
   downloadTrialPerformanceReport,
 } from '../../api'
+
+const SEVERITY_COLOR = {
+  critical: '#f87171',
+  high:     '#fbbf24',
+  medium:   '#fde68a',
+}
+
+function scoreVariant(pct) {
+  if (pct >= 85) return 'ok'
+  if (pct >= 60) return 'warn'
+  return 'danger'
+}
+
+// ── ComplianceChecklist ───────────────────────────────────────────────────────
+
+function ComplianceChecklist({ strainName }) {
+  const [data,    setData]    = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState(null)
+
+  useEffect(() => {
+    if (!strainName) { setData(null); setError(null); return }
+    let cancelled = false
+    setLoading(true); setData(null); setError(null)
+    fetchComplianceChecklist(strainName)
+      .then(d  => { if (!cancelled) { setData(d);           setLoading(false) } })
+      .catch(e => { if (!cancelled) { setError(e.message);  setLoading(false) } })
+    return () => { cancelled = true }
+  }, [strainName])
+
+  if (!strainName) return null
+
+  if (loading) {
+    return (
+      <div style={{ fontSize: 11, color: 'var(--text-3)', padding: '8px 0', fontStyle: 'italic' }}>
+        Checking compliance…
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ fontSize: 11, color: '#f87171', padding: '8px 0' }}>
+        Checklist unavailable
+      </div>
+    )
+  }
+
+  if (!data) return null
+
+  const passed  = data.passed ?? 0
+  const total   = data.total  ?? 0
+  const pct     = total > 0 ? Math.round((passed / total) * 100) : 0
+  const checks  = data.checks ?? []
+
+  return (
+    <div style={{
+      border: '0.5px solid var(--border)', borderRadius: 6,
+      padding: '10px 12px', marginBottom: 10,
+      background: 'rgba(255,255,255,0.02)',
+      display: 'flex', flexDirection: 'column', gap: 8,
+    }}>
+      {/* Score summary */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, color: 'var(--text-2)' }}>
+          <span style={{ fontWeight: 600, color: 'var(--text)' }}>{passed}/{total}</span> checks passed
+        </span>
+        <Badge variant={scoreVariant(pct)}>{pct}%</Badge>
+      </div>
+
+      {/* Ready message */}
+      <div style={{ fontSize: 11, color: data.ready ? '#4ade80' : '#fbbf24', fontWeight: 500 }}>
+        {data.ready ? '✓ Ready to generate report' : '⚠ Issues found — review before submitting'}
+      </div>
+
+      {/* Check items */}
+      {checks.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {checks.map((item, i) => {
+            const failColor = SEVERITY_COLOR[item.severity] ?? '#f87171'
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                {item.passed
+                  ? <CheckCircle2 size={11} color="#4ade80" style={{ flexShrink: 0, marginTop: 1 }} />
+                  : <XCircle      size={11} color={failColor} style={{ flexShrink: 0, marginTop: 1 }} />
+                }
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{
+                    fontSize: 11,
+                    color: item.passed ? 'var(--text-2)' : failColor,
+                  }}>
+                    {item.label}
+                  </span>
+                  {!item.passed && item.message && (
+                    <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
+                      {item.message}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── ReportCard ────────────────────────────────────────────────────────────────
 
 function ReportCard({ title, description, needsStrain, strains, strainsLoading, onDownload }) {
   const [selected, setSelected] = useState('')
@@ -38,29 +149,33 @@ function ReportCard({ title, description, needsStrain, strains, strainsLoading, 
       <div style={{ borderTop: '0.5px solid var(--border)', margin: '14px 0' }} />
 
       {needsStrain && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
-            Strain
+        <>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+              Strain
+            </div>
+            <select
+              value={selected}
+              onChange={e => { setSelected(e.target.value); setError(null) }}
+              disabled={strainsLoading}
+              style={{
+                width: '100%', padding: '6px 8px', fontSize: 11,
+                background: 'var(--bg)', border: '0.5px solid var(--border)',
+                borderRadius: 5, color: selected ? 'var(--text)' : 'var(--text-3)',
+                appearance: 'none', cursor: strainsLoading ? 'not-allowed' : 'pointer',
+              }}
+            >
+              <option value="">
+                {strainsLoading ? 'Loading strains…' : '— Select a strain —'}
+              </option>
+              {(strains ?? []).map(s => (
+                <option key={s.strain} value={s.strain}>{s.strain}</option>
+              ))}
+            </select>
           </div>
-          <select
-            value={selected}
-            onChange={e => { setSelected(e.target.value); setError(null) }}
-            disabled={strainsLoading}
-            style={{
-              width: '100%', padding: '6px 8px', fontSize: 11,
-              background: 'var(--bg)', border: '0.5px solid var(--border)',
-              borderRadius: 5, color: selected ? 'var(--text)' : 'var(--text-3)',
-              appearance: 'none', cursor: strainsLoading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            <option value="">
-              {strainsLoading ? 'Loading strains…' : '— Select a strain —'}
-            </option>
-            {(strains ?? []).map(s => (
-              <option key={s.strain} value={s.strain}>{s.strain}</option>
-            ))}
-          </select>
-        </div>
+
+          <ComplianceChecklist strainName={selected} />
+        </>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
@@ -87,6 +202,8 @@ function ReportCard({ title, description, needsStrain, strains, strainsLoading, 
     </div>
   )
 }
+
+// ── GACP ──────────────────────────────────────────────────────────────────────
 
 export default function GACP() {
   const [strains, setStrains]               = useState(null)
