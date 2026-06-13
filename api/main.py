@@ -3228,3 +3228,88 @@ def compliance_checklist(strain_name: str, auth = Depends(verify_token)):
         "critical_failures": len(critical_failures),
         "checks": checks,
     }
+
+# ── Harvest Sales Log ─────────────────────────────────────────────────────────
+class HarvestSaleIn(BaseModel):
+    sale_date: date
+    strain_id: Optional[str] = None
+    batch_code: Optional[str] = Field(None, max_length=100)
+    quantity_grams: float = Field(..., gt=0)
+    buyer_name: str = Field(..., max_length=200)
+    buyer_gacp_cert: Optional[str] = Field(None, max_length=100)
+    price_thb: Optional[float] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+class HarvestSaleUpdate(BaseModel):
+    sale_date: Optional[date] = None
+    strain_id: Optional[str] = None
+    batch_code: Optional[str] = Field(None, max_length=100)
+    quantity_grams: Optional[float] = Field(None, gt=0)
+    buyer_name: Optional[str] = Field(None, max_length=200)
+    buyer_gacp_cert: Optional[str] = Field(None, max_length=100)
+    price_thb: Optional[float] = Field(None, ge=0)
+    notes: Optional[str] = Field(None, max_length=500)
+
+@app.get("/harvest-sales")
+def list_harvest_sales(limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
+    rows = auth["client"].table("harvest_sales") \
+        .select("*, strains(name)") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .order("sale_date", desc=True) \
+        .range(offset, offset + limit - 1) \
+        .execute()
+    return rows.data or []
+
+@app.post("/harvest-sales")
+def create_harvest_sale(payload: HarvestSaleIn, auth = Depends(verify_token)):
+    row = supabase.table("harvest_sales").insert({
+        "farm_id": auth["farm_id"],
+        "sale_date": payload.sale_date.isoformat(),
+        "strain_id": payload.strain_id,
+        "batch_code": payload.batch_code,
+        "quantity_grams": payload.quantity_grams,
+        "buyer_name": payload.buyer_name,
+        "buyer_gacp_cert": payload.buyer_gacp_cert,
+        "price_thb": payload.price_thb,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.patch("/harvest-sales/{sale_id}")
+def update_harvest_sale(sale_id: str, payload: HarvestSaleUpdate, auth = Depends(verify_token)):
+    check = auth["client"].table("harvest_sales") \
+        .select("id") \
+        .eq("id", sale_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="harvest sale not found")
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if "sale_date" in updates:
+        updates["sale_date"] = str(updates["sale_date"])
+    if not updates:
+        raise HTTPException(status_code=422, detail="no fields to update")
+    row = supabase.table("harvest_sales").update(updates) \
+        .eq("id", sale_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return row.data[0]
+
+@app.delete("/harvest-sales/{sale_id}")
+def delete_harvest_sale(sale_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("harvest_sales") \
+        .select("id") \
+        .eq("id", sale_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="harvest sale not found")
+    supabase.table("harvest_sales") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", sale_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return {"deleted": sale_id}
