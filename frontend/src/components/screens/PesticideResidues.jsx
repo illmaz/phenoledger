@@ -52,13 +52,13 @@ function ResultRow({ record, last }) {
         {record.strain_name ?? record.strain_id ?? '—'}
       </span>
       <span style={{ width: 110, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {record.lab_name ?? '—'}
+        {record.lab ?? '—'}
       </span>
       <span style={{ width: 96, fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
         {fmtDate(record.report_date)}
       </span>
-      <span style={{ width: 150, fontSize: 12, color: 'var(--text)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={record.compound ?? undefined}>
-        {record.compound ?? '—'}
+      <span style={{ width: 150, fontSize: 12, color: 'var(--text)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={record.compound_name ?? undefined}>
+        {record.compound_name ?? '—'}
       </span>
       <span style={{ width: 80, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, textAlign: 'right' }}>
         {fmtNum(record.value_ppb)}

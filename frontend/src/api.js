@@ -772,6 +772,15 @@ export async function logVisitor(data) {
   return res.json()
 }
 
+export async function deleteVisitor(id) {
+  const res = await apiFetch(`${BASE}/visitor-log/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
 export async function fetchPesticideResults() {
   const res = await apiFetch(`${BASE}/pesticide-results`, { headers: await authHeaders() })
   if (!res.ok) throw new Error(`${res.status}`)
@@ -779,7 +788,7 @@ export async function fetchPesticideResults() {
 }
 
 export async function fetchComplianceChecklist(strainName) {
-  const res = await apiFetch(`${BASE}/reports/compliance-checklist/${encodeURIComponent(strainName)}`, {
+  const res = await apiFetch(`${BASE}/compliance-checklist/${encodeURIComponent(strainName)}`, {
     headers: await authHeaders(),
   })
   if (!res.ok) throw new Error(`${res.status}`)

@@ -86,7 +86,7 @@ function SaleForm({ strains, onSaved }) {
           </div>
           <div>
             <label style={lbl}>Quantity (grams) *</label>
-            <input style={inp} type="number" min="0" step="0.01" value={form.quantity_grams} onChange={e => set('quantity_grams', e.target.value)} placeholder="e.g. 500" required />
+            <input style={inp} type="number" min="0.01" step="0.01" value={form.quantity_grams} onChange={e => set('quantity_grams', e.target.value)} placeholder="e.g. 500" required />
           </div>
         </div>
 

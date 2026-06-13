@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Trash2, Plus, BookOpen } from 'lucide-react'
 import { Panel, Grid, StatCard, Badge } from '../ui'
-import { fetchStaff, createStaff, deleteStaff, addStaffTraining, fetchVisitorLog, logVisitor, fetchSOPs } from '../../api'
+import { fetchStaff, createStaff, deleteStaff, addStaffTraining, fetchVisitorLog, logVisitor, deleteVisitor, fetchSOPs } from '../../api'
 
 const TRAINING_TYPES  = ['initial', 'refresher', 'certification']
 const STAFF_STATUSES  = ['active', 'inactive']
@@ -427,7 +427,7 @@ function StaffTab({ staff, sops, onReload, onDeleteStaff, actionError }) {
 
 // ── VisitorTab ────────────────────────────────────────────────────────────────
 
-function VisitorTab({ visitors, onReload, actionError }) {
+function VisitorTab({ visitors, onReload, onDeleteVisitor, actionError }) {
   const [showForm, setShowForm] = useState(false)
 
   const hdr = { fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', flexShrink: 0 }
@@ -469,9 +469,10 @@ function VisitorTab({ visitors, onReload, actionError }) {
             <span style={{ ...hdr, flex: 1 }}>Purpose</span>
             <span style={{ ...hdr, width: 120 }}>Host</span>
             <span style={{ ...hdr, width: 140 }}>Notes</span>
+            <span style={{ ...hdr, width: 28 }} />
           </div>
           {visitors.map((v, i) => (
-            <VisitorRow key={v.id} record={v} last={i === visitors.length - 1} />
+            <VisitorRow key={v.id} record={v} onDelete={onDeleteVisitor} last={i === visitors.length - 1} />
           ))}
         </Panel>
       )}
@@ -479,9 +480,14 @@ function VisitorTab({ visitors, onReload, actionError }) {
   )
 }
 
-function VisitorRow({ record, last }) {
+function VisitorRow({ record, onDelete, last }) {
+  const [hovered, setHovered] = useState(false)
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '8px 0', borderBottom: last ? 'none' : '0.5px solid var(--border)' }}>
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '8px 0', borderBottom: last ? 'none' : '0.5px solid var(--border)' }}
+    >
       <span style={{ width: 90, fontSize: 11, color: 'var(--text-2)', flexShrink: 0 }}>{fmtDate(record.visit_date)}</span>
       <span style={{ width: 150, fontSize: 12, color: 'var(--text)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{record.visitor_name}</span>
       <span style={{ width: 130, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -496,6 +502,17 @@ function VisitorRow({ record, last }) {
       <span title={record.notes ?? undefined} style={{ width: 140, fontSize: 11, color: 'var(--text-3)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {record.notes ?? '—'}
       </span>
+      <div style={{ width: 28, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+        {hovered && (
+          <button
+            onClick={() => onDelete(record.id)}
+            title="Delete"
+            style={{ padding: '2px 4px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#f87171', display: 'flex', alignItems: 'center' }}
+          >
+            <Trash2 size={11} />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -533,6 +550,17 @@ export default function StaffRecords() {
     }
   }
 
+  async function handleDeleteVisitor(id) {
+    if (!window.confirm('Delete this visitor log entry? This cannot be undone.')) return
+    setActionError(null)
+    try {
+      await deleteVisitor(id)
+      setVisitors(prev => prev ? prev.filter(v => v.id !== id) : prev)
+    } catch (err) {
+      setActionError(`Delete failed: ${err.message}`)
+    }
+  }
+
   const TAB_STYLE = (isActive) => ({
     padding: '6px 16px', fontSize: 12, fontWeight: isActive ? 600 : 400,
     border: 'none', borderRadius: 6, cursor: 'pointer',
@@ -559,6 +587,7 @@ export default function StaffRecords() {
         <VisitorTab
           visitors={visitors}
           onReload={loadVisitors}
+          onDeleteVisitor={handleDeleteVisitor}
           actionError={actionError}
         />
       )}

@@ -47,7 +47,11 @@ def extract(pdf_path: str | Path) -> dict:
                         "needs_review": needs_review,
                     })
     pesticides = []
-    with pdfplumber.open(pdf_path) as pdf:
+    try:
+        _pest_pdf = pdfplumber.open(pdf_path)
+    except Exception:
+        return {"cannabinoids": cannabinoids, "terpenes": terpenes, "pesticides": []}
+    with _pest_pdf as pdf:
         for page in pdf.pages:
             tables = page.extract_tables()
             for table in tables:

@@ -361,7 +361,15 @@ export default function EnvironmentalMonitoring() {
   }
 
   useEffect(() => { loadRooms() }, [])
-  useEffect(() => { setLogs(null); loadLogs() }, [roomFilter])
+  useEffect(() => {
+    let cancelled = false
+    setLogs(null)
+    const filters = roomFilter ? { grow_room_id: roomFilter } : {}
+    fetchEnvironmentalLogs(filters)
+      .then(data => { if (!cancelled) setLogs(data) })
+      .catch(()   => { if (!cancelled) setLogs([]) })
+    return () => { cancelled = true }
+  }, [roomFilter])
 
   async function handleDeleteRoom(id) {
     if (!window.confirm('Delete this grow room? This cannot be undone.')) return

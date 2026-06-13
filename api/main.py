@@ -1863,128 +1863,6 @@ def delete_breeding_record(record_id: str, auth = Depends(verify_token)):
 
 
 
-# ── Phase 9: Staff & Training Records ────────────────────────────────────────
-class StaffMemberIn(BaseModel):
-    name: str = Field(..., max_length=100)
-    role: Optional[str] = Field(None, max_length=100)
-    email: Optional[str] = Field(None, max_length=200)
-    phone: Optional[str] = Field(None, max_length=50)
-    start_date: Optional[date] = None
-    status: Optional[Literal["active", "inactive"]] = "active"
-    notes: Optional[str] = Field(None, max_length=500)
-
-class StaffMemberUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    role: Optional[str] = Field(None, max_length=100)
-    email: Optional[str] = Field(None, max_length=200)
-    phone: Optional[str] = Field(None, max_length=50)
-    start_date: Optional[date] = None
-    status: Optional[Literal["active", "inactive"]] = None
-    notes: Optional[str] = Field(None, max_length=500)
-
-class StaffTrainingIn(BaseModel):
-    staff_id: str
-    sop_id: Optional[str] = None
-    training_date: date
-    trainer: Optional[str] = Field(None, max_length=100)
-    training_type: Optional[Literal["initial", "refresher", "certification"]] = "initial"
-    expiry_date: Optional[date] = None
-    notes: Optional[str] = Field(None, max_length=500)
-
-class VisitorLogIn(BaseModel):
-    visitor_name: str = Field(..., max_length=100)
-    organization: Optional[str] = Field(None, max_length=100)
-    purpose: Optional[str] = Field(None, max_length=200)
-    visit_date: date
-    host_name: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = Field(None, max_length=500)
-
-# ── Phase 8: Environmental Monitoring ────────────────────────────────────────
-class GrowRoomIn(BaseModel):
-    name: str = Field(..., max_length=100)
-    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
-    capacity_plants: Optional[int] = Field(None, ge=0)
-    notes: Optional[str] = Field(None, max_length=500)
-
-class GrowRoomUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
-    capacity_plants: Optional[int] = Field(None, ge=0)
-    notes: Optional[str] = Field(None, max_length=500)
-
-class EnvironmentalLogIn(BaseModel):
-    grow_room_id: str
-    log_date: date
-    temp_min: Optional[float] = Field(None, ge=-10, le=60)
-    temp_max: Optional[float] = Field(None, ge=-10, le=60)
-    humidity_min: Optional[float] = Field(None, ge=0, le=100)
-    humidity_max: Optional[float] = Field(None, ge=0, le=100)
-    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
-    vpd: Optional[float] = Field(None, ge=0, le=10)
-    notes: Optional[str] = Field(None, max_length=500)
-
-class EnvironmentalLogUpdate(BaseModel):
-    log_date: Optional[date] = None
-    temp_min: Optional[float] = Field(None, ge=-10, le=60)
-    temp_max: Optional[float] = Field(None, ge=-10, le=60)
-    humidity_min: Optional[float] = Field(None, ge=0, le=100)
-    humidity_max: Optional[float] = Field(None, ge=0, le=100)
-    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
-    vpd: Optional[float] = Field(None, ge=0, le=10)
-    notes: Optional[str] = Field(None, max_length=500)
-
-# ── Phase 7: SOP Management ───────────────────────────────────────────────────
-class SOPIn(BaseModel):
-    title: str = Field(..., max_length=200)
-    sop_code: str = Field(..., max_length=50)
-    version: str = Field("1.0", max_length=20)
-    category: Optional[Literal["cultivation", "harvesting", "processing", "quality_control", "health_safety", "environmental", "other"]] = None
-    status: Optional[Literal["draft", "active", "under_review", "retired"]] = "draft"
-    effective_date: Optional[date] = None
-    review_date: Optional[date] = None
-    approved_by: Optional[str] = Field(None, max_length=100)
-    document_url: Optional[str] = Field(None, max_length=500)
-    notes: Optional[str] = Field(None, max_length=1000)
-
-class SOPUpdate(BaseModel):
-    title: Optional[str] = Field(None, max_length=200)
-    version: Optional[str] = Field(None, max_length=20)
-    category: Optional[Literal["cultivation", "harvesting", "processing", "quality_control", "health_safety", "environmental", "other"]] = None
-    status: Optional[Literal["draft", "active", "under_review", "retired"]] = None
-    effective_date: Optional[date] = None
-    review_date: Optional[date] = None
-    approved_by: Optional[str] = Field(None, max_length=100)
-    document_url: Optional[str] = Field(None, max_length=500)
-    notes: Optional[str] = Field(None, max_length=1000)
-
-class SOPAcknowledgmentIn(BaseModel):
-    sop_id: str
-    staff_name: str = Field(..., max_length=100)
-    notes: Optional[str] = Field(None, max_length=500)
-
-# ── Phase 6: Agricultural Input Records ──────────────────────────────────────
-class InputRecordIn(BaseModel):
-    input_date: date
-    input_type: Literal["fertilizer", "pesticide", "pH_adjuster", "irrigation", "other"]
-    product_name: str = Field(..., max_length=200)
-    rate: Optional[str] = Field(None, max_length=50)
-    unit: Optional[str] = Field(None, max_length=50)
-    operator: Optional[str] = Field(None, max_length=100)
-    grow_room: Optional[str] = Field(None, max_length=100)
-    batch_record_id: Optional[str] = None
-    notes: Optional[str] = Field(None, max_length=500)
-
-class InputRecordUpdate(BaseModel):
-    input_date: Optional[date] = None
-    input_type: Optional[Literal["fertilizer", "pesticide", "pH_adjuster", "irrigation", "other"]] = None
-    product_name: Optional[str] = Field(None, max_length=200)
-    rate: Optional[str] = Field(None, max_length=50)
-    unit: Optional[str] = Field(None, max_length=50)
-    operator: Optional[str] = Field(None, max_length=100)
-    grow_room: Optional[str] = Field(None, max_length=100)
-    batch_record_id: Optional[str] = None
-    notes: Optional[str] = Field(None, max_length=500)
-
 # ── Phase 5: Batch Records ────────────────────────────────────────────────────
 class BatchRecordIn(BaseModel):
     batch_code: str = Field(..., max_length=100)
@@ -2163,105 +2041,6 @@ def delete_tissue_culture_record(record_id: str, auth = Depends(verify_token)):
 
 
 
-# ── Phase 9: Staff & Training Records ────────────────────────────────────────
-class StaffMemberIn(BaseModel):
-    name: str = Field(..., max_length=100)
-    role: Optional[str] = Field(None, max_length=100)
-    email: Optional[str] = Field(None, max_length=200)
-    phone: Optional[str] = Field(None, max_length=50)
-    start_date: Optional[date] = None
-    status: Optional[Literal["active", "inactive"]] = "active"
-    notes: Optional[str] = Field(None, max_length=500)
-
-class StaffMemberUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    role: Optional[str] = Field(None, max_length=100)
-    email: Optional[str] = Field(None, max_length=200)
-    phone: Optional[str] = Field(None, max_length=50)
-    start_date: Optional[date] = None
-    status: Optional[Literal["active", "inactive"]] = None
-    notes: Optional[str] = Field(None, max_length=500)
-
-class StaffTrainingIn(BaseModel):
-    staff_id: str
-    sop_id: Optional[str] = None
-    training_date: date
-    trainer: Optional[str] = Field(None, max_length=100)
-    training_type: Optional[Literal["initial", "refresher", "certification"]] = "initial"
-    expiry_date: Optional[date] = None
-    notes: Optional[str] = Field(None, max_length=500)
-
-class VisitorLogIn(BaseModel):
-    visitor_name: str = Field(..., max_length=100)
-    organization: Optional[str] = Field(None, max_length=100)
-    purpose: Optional[str] = Field(None, max_length=200)
-    visit_date: date
-    host_name: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = Field(None, max_length=500)
-
-# ── Phase 8: Environmental Monitoring ────────────────────────────────────────
-class GrowRoomIn(BaseModel):
-    name: str = Field(..., max_length=100)
-    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
-    capacity_plants: Optional[int] = Field(None, ge=0)
-    notes: Optional[str] = Field(None, max_length=500)
-
-class GrowRoomUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
-    capacity_plants: Optional[int] = Field(None, ge=0)
-    notes: Optional[str] = Field(None, max_length=500)
-
-class EnvironmentalLogIn(BaseModel):
-    grow_room_id: str
-    log_date: date
-    temp_min: Optional[float] = Field(None, ge=-10, le=60)
-    temp_max: Optional[float] = Field(None, ge=-10, le=60)
-    humidity_min: Optional[float] = Field(None, ge=0, le=100)
-    humidity_max: Optional[float] = Field(None, ge=0, le=100)
-    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
-    vpd: Optional[float] = Field(None, ge=0, le=10)
-    notes: Optional[str] = Field(None, max_length=500)
-
-class EnvironmentalLogUpdate(BaseModel):
-    log_date: Optional[date] = None
-    temp_min: Optional[float] = Field(None, ge=-10, le=60)
-    temp_max: Optional[float] = Field(None, ge=-10, le=60)
-    humidity_min: Optional[float] = Field(None, ge=0, le=100)
-    humidity_max: Optional[float] = Field(None, ge=0, le=100)
-    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
-    vpd: Optional[float] = Field(None, ge=0, le=10)
-    notes: Optional[str] = Field(None, max_length=500)
-
-# ── Phase 7: SOP Management ───────────────────────────────────────────────────
-class SOPIn(BaseModel):
-    title: str = Field(..., max_length=200)
-    sop_code: str = Field(..., max_length=50)
-    version: str = Field("1.0", max_length=20)
-    category: Optional[Literal["cultivation", "harvesting", "processing", "quality_control", "health_safety", "environmental", "other"]] = None
-    status: Optional[Literal["draft", "active", "under_review", "retired"]] = "draft"
-    effective_date: Optional[date] = None
-    review_date: Optional[date] = None
-    approved_by: Optional[str] = Field(None, max_length=100)
-    document_url: Optional[str] = Field(None, max_length=500)
-    notes: Optional[str] = Field(None, max_length=1000)
-
-class SOPUpdate(BaseModel):
-    title: Optional[str] = Field(None, max_length=200)
-    version: Optional[str] = Field(None, max_length=20)
-    category: Optional[Literal["cultivation", "harvesting", "processing", "quality_control", "health_safety", "environmental", "other"]] = None
-    status: Optional[Literal["draft", "active", "under_review", "retired"]] = None
-    effective_date: Optional[date] = None
-    review_date: Optional[date] = None
-    approved_by: Optional[str] = Field(None, max_length=100)
-    document_url: Optional[str] = Field(None, max_length=500)
-    notes: Optional[str] = Field(None, max_length=1000)
-
-class SOPAcknowledgmentIn(BaseModel):
-    sop_id: str
-    staff_name: str = Field(..., max_length=100)
-    notes: Optional[str] = Field(None, max_length=500)
-
 # ── Phase 6: Agricultural Input Records ──────────────────────────────────────
 class InputRecordIn(BaseModel):
     input_date: date
@@ -2307,6 +2086,18 @@ def create_batch_record(payload: BatchRecordIn, auth = Depends(verify_token)):
         .execute()
     if existing.data:
         raise HTTPException(status_code=409, detail=f"Batch code '{payload.batch_code}' already exists")
+    # Validate FK ownership
+    for fk_table, fk_id in [
+        ("strains", payload.strain_id),
+        ("seed_lots", payload.seed_lot_id),
+        ("mother_plants", payload.mother_plant_id),
+        ("trials", payload.trial_id),
+        ("coa_reports", payload.coa_report_id),
+    ]:
+        if fk_id:
+            fk_check = auth["client"].table(fk_table).select("id").eq("id", fk_id).eq("farm_id", auth["farm_id"]).execute()
+            if not fk_check.data:
+                raise HTTPException(status_code=403, detail=f"{fk_table} not found or not owned by this farm")
     row = supabase.table("batch_records").insert({
         "farm_id": auth["farm_id"],
         "batch_code": payload.batch_code,
@@ -2426,76 +2217,6 @@ def batch_record_report(batch_id: str, auth = Depends(verify_token)):
 
 
 
-# ── Phase 9: Staff & Training Records ────────────────────────────────────────
-class StaffMemberIn(BaseModel):
-    name: str = Field(..., max_length=100)
-    role: Optional[str] = Field(None, max_length=100)
-    email: Optional[str] = Field(None, max_length=200)
-    phone: Optional[str] = Field(None, max_length=50)
-    start_date: Optional[date] = None
-    status: Optional[Literal["active", "inactive"]] = "active"
-    notes: Optional[str] = Field(None, max_length=500)
-
-class StaffMemberUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    role: Optional[str] = Field(None, max_length=100)
-    email: Optional[str] = Field(None, max_length=200)
-    phone: Optional[str] = Field(None, max_length=50)
-    start_date: Optional[date] = None
-    status: Optional[Literal["active", "inactive"]] = None
-    notes: Optional[str] = Field(None, max_length=500)
-
-class StaffTrainingIn(BaseModel):
-    staff_id: str
-    sop_id: Optional[str] = None
-    training_date: date
-    trainer: Optional[str] = Field(None, max_length=100)
-    training_type: Optional[Literal["initial", "refresher", "certification"]] = "initial"
-    expiry_date: Optional[date] = None
-    notes: Optional[str] = Field(None, max_length=500)
-
-class VisitorLogIn(BaseModel):
-    visitor_name: str = Field(..., max_length=100)
-    organization: Optional[str] = Field(None, max_length=100)
-    purpose: Optional[str] = Field(None, max_length=200)
-    visit_date: date
-    host_name: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = Field(None, max_length=500)
-
-# ── Phase 8: Environmental Monitoring ────────────────────────────────────────
-class GrowRoomIn(BaseModel):
-    name: str = Field(..., max_length=100)
-    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
-    capacity_plants: Optional[int] = Field(None, ge=0)
-    notes: Optional[str] = Field(None, max_length=500)
-
-class GrowRoomUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    room_type: Optional[Literal["veg", "flower", "mother", "clone", "drying", "other"]] = None
-    capacity_plants: Optional[int] = Field(None, ge=0)
-    notes: Optional[str] = Field(None, max_length=500)
-
-class EnvironmentalLogIn(BaseModel):
-    grow_room_id: str
-    log_date: date
-    temp_min: Optional[float] = Field(None, ge=-10, le=60)
-    temp_max: Optional[float] = Field(None, ge=-10, le=60)
-    humidity_min: Optional[float] = Field(None, ge=0, le=100)
-    humidity_max: Optional[float] = Field(None, ge=0, le=100)
-    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
-    vpd: Optional[float] = Field(None, ge=0, le=10)
-    notes: Optional[str] = Field(None, max_length=500)
-
-class EnvironmentalLogUpdate(BaseModel):
-    log_date: Optional[date] = None
-    temp_min: Optional[float] = Field(None, ge=-10, le=60)
-    temp_max: Optional[float] = Field(None, ge=-10, le=60)
-    humidity_min: Optional[float] = Field(None, ge=0, le=100)
-    humidity_max: Optional[float] = Field(None, ge=0, le=100)
-    co2_ppm: Optional[int] = Field(None, ge=0, le=10000)
-    vpd: Optional[float] = Field(None, ge=0, le=10)
-    notes: Optional[str] = Field(None, max_length=500)
-
 # ── Phase 7: SOP Management ───────────────────────────────────────────────────
 class SOPIn(BaseModel):
     title: str = Field(..., max_length=200)
@@ -2541,6 +2262,10 @@ def list_input_records(batch_record_id: Optional[str] = None, input_type: Option
 
 @app.post("/input-records")
 def create_input_record(payload: InputRecordIn, auth = Depends(verify_token)):
+    if payload.batch_record_id:
+        br_check = auth["client"].table("batch_records").select("id").eq("id", payload.batch_record_id).eq("farm_id", auth["farm_id"]).is_("deleted_at", "null").execute()
+        if not br_check.data:
+            raise HTTPException(status_code=403, detail="batch_record not found or not owned by this farm")
     row = supabase.table("input_records").insert({
         "farm_id": auth["farm_id"],
         "input_date": payload.input_date.isoformat(),
@@ -2594,42 +2319,6 @@ def delete_input_record(record_id: str, auth = Depends(verify_token)):
     return {"deleted": record_id}
 
 
-
-# ── Phase 9: Staff & Training Records ────────────────────────────────────────
-class StaffMemberIn(BaseModel):
-    name: str = Field(..., max_length=100)
-    role: Optional[str] = Field(None, max_length=100)
-    email: Optional[str] = Field(None, max_length=200)
-    phone: Optional[str] = Field(None, max_length=50)
-    start_date: Optional[date] = None
-    status: Optional[Literal["active", "inactive"]] = "active"
-    notes: Optional[str] = Field(None, max_length=500)
-
-class StaffMemberUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    role: Optional[str] = Field(None, max_length=100)
-    email: Optional[str] = Field(None, max_length=200)
-    phone: Optional[str] = Field(None, max_length=50)
-    start_date: Optional[date] = None
-    status: Optional[Literal["active", "inactive"]] = None
-    notes: Optional[str] = Field(None, max_length=500)
-
-class StaffTrainingIn(BaseModel):
-    staff_id: str
-    sop_id: Optional[str] = None
-    training_date: date
-    trainer: Optional[str] = Field(None, max_length=100)
-    training_type: Optional[Literal["initial", "refresher", "certification"]] = "initial"
-    expiry_date: Optional[date] = None
-    notes: Optional[str] = Field(None, max_length=500)
-
-class VisitorLogIn(BaseModel):
-    visitor_name: str = Field(..., max_length=100)
-    organization: Optional[str] = Field(None, max_length=100)
-    purpose: Optional[str] = Field(None, max_length=200)
-    visit_date: date
-    host_name: Optional[str] = Field(None, max_length=100)
-    notes: Optional[str] = Field(None, max_length=500)
 
 # ── Phase 8: Environmental Monitoring ────────────────────────────────────────
 class GrowRoomIn(BaseModel):
@@ -2971,6 +2660,10 @@ def add_training(staff_id: str, payload: StaffTrainingIn, auth = Depends(verify_
         .execute()
     if not check.data:
         raise HTTPException(status_code=404, detail="staff member not found")
+    if payload.sop_id:
+        sop_check = auth["client"].table("sops").select("id").eq("id", payload.sop_id).eq("farm_id", auth["farm_id"]).is_("deleted_at", "null").execute()
+        if not sop_check.data:
+            raise HTTPException(status_code=403, detail="sop not found or not owned by this farm")
     row = supabase.table("staff_training").insert({
         "farm_id": auth["farm_id"],
         "staff_id": staff_id,
@@ -3007,6 +2700,22 @@ def list_visitors(auth = Depends(verify_token)):
         .order("visit_date", desc=True) \
         .execute()
     return rows.data or []
+
+@app.delete("/visitor-log/{visit_id}")
+def delete_visitor(visit_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("visitor_log") \
+        .select("id") \
+        .eq("id", visit_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="visitor log entry not found")
+    supabase.table("visitor_log") \
+        .delete() \
+        .eq("id", visit_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return {"deleted": visit_id}
 
 @app.post("/visitor-log")
 def log_visitor(payload: VisitorLogIn, auth = Depends(verify_token)):
