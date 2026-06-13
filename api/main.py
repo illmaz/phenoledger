@@ -795,7 +795,7 @@ def strain_batches(strain_name: str, auth = Depends(verify_token)):
     if not matching_ids:
         return []
     reports_rows = auth["client"].table("coa_reports") \
-        .select("id, upload_id, report_date, lab_name, coa_uploads(original_filename, extraction_status, created_at, s3_key)") \
+        .select("id, upload_id, report_date, lab_name, notes, coa_uploads(original_filename, extraction_status, created_at, s3_key)") \
         .in_("id", matching_ids) \
         .is_("deleted_at", "null") \
         .execute()
