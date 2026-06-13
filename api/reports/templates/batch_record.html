@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 20mm 15mm; }
+  body { font-family: Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+  .header { border-bottom: 3px solid #2d7a4f; padding-bottom: 8px; margin-bottom: 16px; }
+  .header h1 { font-size: 18pt; color: #2d7a4f; margin: 0 0 4px 0; }
+  .header .subtitle { font-size: 10pt; color: #555; }
+  .meta { display: flex; gap: 40px; margin-bottom: 20px; font-size: 9pt; color: #555; }
+  h2 { font-size: 12pt; color: #2d7a4f; border-bottom: 1px solid #d0e8d8; padding-bottom: 4px; margin: 20px 0 10px 0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 9pt; }
+  th { background: #2d7a4f; color: white; padding: 6px 8px; text-align: left; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e8f0eb; }
+  tr:nth-child(even) td { background: #f5faf7; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: bold; }
+  .badge-green { background: #d0e8d8; color: #1a5c34; }
+  .badge-red { background: #fde8e8; color: #7a2d2d; }
+  .badge-yellow { background: #fdf6d0; color: #7a6a1a; }
+  .badge-blue { background: #d0e0f8; color: #1a3c7a; }
+  .badge-purple { background: #e8d0f8; color: #4a1a7a; }
+  .badge-gray { background: #e8e8e8; color: #555; }
+  .kv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 40px; font-size: 9pt; margin-bottom: 16px; }
+  .kv-item { display: flex; gap: 8px; }
+  .kv-label { color: #555; min-width: 140px; }
+  .kv-value { font-weight: bold; }
+  .chain { display: flex; align-items: center; gap: 8px; font-size: 9pt; margin-bottom: 16px; flex-wrap: wrap; }
+  .chain-item { background: #f5faf7; border: 1px solid #d0e8d8; padding: 4px 10px; border-radius: 4px; }
+  .chain-arrow { color: #2d7a4f; font-weight: bold; }
+  .footer { position: fixed; bottom: 0; left: 0; right: 0; font-size: 8pt; color: #aaa; text-align: center; padding: 4px; border-top: 1px solid #eee; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Batch Production Record</h1>
+  <div class="subtitle">PhenoLedger — Cannabis Certificate of Analysis Intelligence Platform</div>
+</div>
+
+<div class="meta">
+  <span><strong>Farm:</strong> {{ farm_name }}</span>
+  <span><strong>Batch:</strong> {{ batch.batch_code }}</span>
+  <span><strong>Generated:</strong> {{ generated_date }}</span>
+</div>
+
+<!-- Batch Chain -->
+<h2>1. Production Chain</h2>
+<div class="chain">
+  {% if batch.seed_lot_code %}
+  <div class="chain-item">🌱 Seed Lot: {{ batch.seed_lot_code }}</div>
+  <div class="chain-arrow">→</div>
+  {% endif %}
+  {% if batch.mother_plant_code %}
+  <div class="chain-item">🪴 Mother: {{ batch.mother_plant_code }}</div>
+  <div class="chain-arrow">→</div>
+  {% endif %}
+  {% if batch.strain_name %}
+  <div class="chain-item">🧬 Strain: {{ batch.strain_name }}</div>
+  <div class="chain-arrow">→</div>
+  {% endif %}
+  {% if batch.trial_location %}
+  <div class="chain-item">🌿 Grow: {{ batch.trial_location }}</div>
+  <div class="chain-arrow">→</div>
+  {% endif %}
+  {% if batch.coa_sample_name %}
+  <div class="chain-item">🧪 COA: {{ batch.coa_sample_name }}</div>
+  {% endif %}
+</div>
+
+<!-- Batch Details -->
+<h2>2. Batch Details</h2>
+<div class="kv-grid">
+  <div class="kv-item"><span class="kv-label">Batch Code:</span><span class="kv-value">{{ batch.batch_code }}</span></div>
+  <div class="kv-item"><span class="kv-label">Status:</span><span class="kv-value">{{ batch.status | title }}</span></div>
+  <div class="kv-item"><span class="kv-label">Strain:</span><span class="kv-value">{{ batch.strain_name or '—' }}</span></div>
+  <div class="kv-item"><span class="kv-label">Created:</span><span class="kv-value">{{ batch.created_at[:10] if batch.created_at else '—' }}</span></div>
+  {% if batch.notes %}
+  <div class="kv-item" style="grid-column: 1/-1"><span class="kv-label">Notes:</span><span class="kv-value">{{ batch.notes }}</span></div>
+  {% endif %}
+</div>
+
+<!-- Seed Lot -->
+{% if seed_lot %}
+<h2>3. Genetic Origin</h2>
+<table>
+  <tr><th>Lot Code</th><th>Origin</th><th>Import Permit</th><th>Phyto Cert</th><th>Germination</th><th>Arrival</th></tr>
+  <tr>
+    <td>{{ seed_lot.lot_code }}</td>
+    <td>{{ seed_lot.origin_country or '—' }}</td>
+    <td>{{ seed_lot.import_permit_number or '—' }}</td>
+    <td>{{ seed_lot.phytosanitary_cert_number or '—' }}</td>
+    <td>{{ seed_lot.germination_rate or '—' }}%</td>
+    <td>{{ seed_lot.arrival_date or '—' }}</td>
+  </tr>
+</table>
+{% endif %}
+
+<!-- Mother Plant -->
+{% if mother_plant %}
+<h2>4. Mother Plant Record</h2>
+<table>
+  <tr><th>Plant Code</th><th>Established</th><th>Generation</th><th>Health</th><th>HLVd Result</th></tr>
+  <tr>
+    <td>{{ mother_plant.plant_code }}</td>
+    <td>{{ mother_plant.established_date or '—' }}</td>
+    <td>{{ mother_plant.clone_generation or '—' }}</td>
+    <td><span class="badge badge-green">{{ mother_plant.health_status }}</span></td>
+    <td>
+      {% if mother_plant.hlvd_result == 'negative' %}<span class="badge badge-green">Negative</span>
+      {% elif mother_plant.hlvd_result == 'positive' %}<span class="badge badge-red">Positive</span>
+      {% else %}<span class="badge badge-yellow">Pending</span>{% endif %}
+    </td>
+  </tr>
+</table>
+{% endif %}
+
+<!-- Trial / Grow Conditions -->
+{% if trial %}
+<h2>5. Growing Conditions</h2>
+<table>
+  <tr><th>Location</th><th>Grow Type</th><th>Start</th><th>Harvest</th><th>Plants</th><th>Dry Weight</th><th>Medium</th><th>Light Cycle</th></tr>
+  <tr>
+    <td>{{ trial.location_name or '—' }}</td>
+    <td>{{ trial.grow_type or '—' }}</td>
+    <td>{{ trial.start_date or '—' }}</td>
+    <td>{{ trial.harvest_date or '—' }}</td>
+    <td>{{ trial.plant_count or '—' }}</td>
+    <td>{{ trial.dry_weight_g or '—' }}g</td>
+    <td>{{ trial.grow_medium or '—' }}</td>
+    <td>{{ trial.light_cycle or '—' }}</td>
+  </tr>
+</table>
+{% endif %}
+
+<!-- COA Results -->
+{% if coa %}
+<h2>6. Certificate of Analysis</h2>
+<table>
+  <tr><th>Sample</th><th>Lab</th><th>Report Date</th><th>THCA%</th><th>Total THC%</th><th>CBD%</th></tr>
+  <tr>
+    <td>{{ coa.sample_name or '—' }}</td>
+    <td>{{ coa.lab_name or '—' }}</td>
+    <td>{{ coa.report_date or '—' }}</td>
+    <td>{{ coa.thca or '—' }}</td>
+    <td>{{ coa.total_thc or '—' }}</td>
+    <td>{{ coa.cbd or '—' }}</td>
+  </tr>
+</table>
+{% endif %}
+
+<div class="footer">
+  PhenoLedger Batch Production Record · Generated {{ generated_date }} · Confidential
+</div>
+
+</body>
+</html>

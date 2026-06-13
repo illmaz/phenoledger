@@ -2090,3 +2090,70 @@ def delete_batch_record(record_id: str, auth = Depends(verify_token)):
         .eq("farm_id", auth["farm_id"]) \
         .execute()
     return {"deleted": record_id}
+
+@app.get("/reports/batch-record/{batch_id}")
+def batch_record_report(batch_id: str, auth = Depends(verify_token)):
+    from fastapi.responses import Response
+    from api.reports.generator import render_batch_record_report
+    from datetime import date
+
+    batch_row = auth["client"].table("batch_records") \
+        .select("*, strains(name), seed_lots(lot_code, origin_country, import_permit_number, phytosanitary_cert_number, germination_rate, arrival_date), mother_plants(plant_code, established_date, clone_generation, health_status, hlvd_tested, hlvd_result, hlvd_test_date), trials(location_name, grow_type, start_date, harvest_date, plant_count, dry_weight_g, grow_medium, light_cycle), coa_reports(sample_name, lab_name, report_date, total_thc_pct, total_cbd_pct)") \
+        .eq("id", batch_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not batch_row.data:
+        raise HTTPException(status_code=404, detail="batch record not found")
+    b = batch_row.data[0]
+
+    farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
+    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+
+    seed_lot = b.get("seed_lots")
+    mother_plant = b.get("mother_plants")
+    trial = b.get("trials")
+    coa = b.get("coa_reports")
+
+    # Get THCA from cannabinoid results if available
+    if coa:
+        coa_id = b.get("coa_report_id")
+        if coa_id:
+            cann = auth["client"].table("cannabinoid_results") \
+                .select("compound_name, value_pct") \
+                .eq("report_id", coa_id) \
+                .in_("compound_name", ["THCA", "D9-THC", "CBD"]) \
+                .execute()
+            cann_map = {r["compound_name"]: float(r["value_pct"] or 0) for r in (cann.data or [])}
+            thca = cann_map.get("THCA")
+            d9 = cann_map.get("D9-THC", 0)
+            coa["thca"] = round(thca, 3) if thca else None
+            coa["total_thc"] = round(thca * 0.877 + d9, 2) if thca else None
+            coa["cbd"] = round(cann_map.get("CBD", 0), 3) if cann_map.get("CBD") else None
+            coa["lab_name"] = LAB_DISPLAY.get(coa.get("lab_name"), coa.get("lab_name"))
+
+    batch_data = {
+        "batch_code": b["batch_code"],
+        "status": b["status"],
+        "strain_name": (b.get("strains") or {}).get("name"),
+        "seed_lot_code": (seed_lot or {}).get("lot_code"),
+        "mother_plant_code": (mother_plant or {}).get("plant_code"),
+        "trial_location": (trial or {}).get("location_name"),
+        "coa_sample_name": (coa or {}).get("sample_name"),
+        "notes": b.get("notes"),
+        "created_at": b.get("created_at"),
+    }
+
+    pdf = render_batch_record_report(
+        farm_name=farm_name,
+        batch=batch_data,
+        seed_lot=seed_lot,
+        mother_plant=mother_plant,
+        trial=trial,
+        coa=coa,
+    )
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=BatchRecord_{batch_data['batch_code']}.pdf"},
+    )

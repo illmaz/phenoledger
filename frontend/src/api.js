@@ -555,3 +555,20 @@ export async function deleteBatchRecord(id) {
   if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
   return res.json()
 }
+
+export async function downloadBatchReport(batchId, batchCode) {
+  const res = await apiFetch(`${BASE}/reports/batch-record/${encodeURIComponent(batchId)}`, {
+    headers: { ...await authHeaders() }
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || String(res.status))
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `BatchRecord_${(batchCode || batchId).replace(/ /g, '_')}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}

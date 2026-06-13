@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   LayoutDashboard, Dna, FlaskConical, GitBranch, GitMerge, Leaf, Sprout,
-  TestTube2, FileCheck2, Shield, Microscope, Building2, Globe, Zap,
+  TestTube2, Package, FileCheck2, Shield, Microscope, Building2, Globe, Zap,
 } from 'lucide-react'
 
 const NAV = [
@@ -15,6 +15,7 @@ const NAV = [
   { id: 'breeding-records',  label: 'Breeding Records',  Icon: GitMerge        },
   { divider: true },
   { id: 'trials',            label: 'Trial Data',        Icon: TestTube2       },
+  { id: 'batch-records',    label: 'Batch Records',     Icon: Package         },
   { divider: true },
   { id: 'gacp',              label: 'GACP Reports',      Icon: FileCheck2      },
   { id: 'health-screenings', label: 'Health Screenings', Icon: Shield          },

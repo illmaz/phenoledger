@@ -80,3 +80,23 @@ def render_trial_performance_report(
         generated_date=date.today().strftime("%d %b %Y"),
     )
     return HTML(string=html_content).write_pdf()
+
+def render_batch_record_report(
+    farm_name: str,
+    batch: dict,
+    seed_lot: dict | None,
+    mother_plant: dict | None,
+    trial: dict | None,
+    coa: dict | None,
+) -> bytes:
+    template = _jinja_env.get_template("batch_record.html")
+    html_content = template.render(
+        farm_name=farm_name,
+        batch=batch,
+        seed_lot=seed_lot,
+        mother_plant=mother_plant,
+        trial=trial,
+        coa=coa,
+        generated_date=date.today().strftime("%d %b %Y"),
+    )
+    return HTML(string=html_content).write_pdf()
