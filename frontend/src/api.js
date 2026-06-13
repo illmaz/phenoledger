@@ -288,6 +288,23 @@ export async function fetchTrialAnalyticsSummary() {
   return res.json()
 }
 
+export async function downloadMonthlySummary(year, month) {
+  const res = await apiFetch(`${BASE}/reports/monthly-summary?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`, {
+    headers: { ...await authHeaders() }
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.detail || body.message || String(res.status))
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `MonthlySummary_${year}_${String(month).padStart(2, '0')}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export async function downloadGACPReport(strainName) {
   const res = await apiFetch(`${BASE}/reports/gacp/${encodeURIComponent(strainName)}`, {
     headers: { ...await authHeaders() }

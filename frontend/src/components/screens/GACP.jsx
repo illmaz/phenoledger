@@ -8,7 +8,13 @@ import {
   downloadStrainPerformanceReport,
   downloadImportSummaryReport,
   downloadTrialPerformanceReport,
+  downloadMonthlySummary,
 } from '../../api'
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
 
 const SEVERITY_COLOR = {
   critical: '#f87171',
@@ -113,6 +119,101 @@ function ComplianceChecklist({ strainName }) {
           })}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── MonthlyReportCard ─────────────────────────────────────────────────────────
+
+function MonthlyReportCard() {
+  const now = new Date()
+  const [year,    setYear]    = useState(now.getFullYear())
+  const [month,   setMonth]   = useState(now.getMonth() + 1)
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState(null)
+
+  const inp = {
+    width: '100%', padding: '6px 8px', fontSize: 11,
+    background: 'var(--bg)', border: '0.5px solid var(--border)',
+    borderRadius: 5, color: 'var(--text)',
+    appearance: 'none', boxSizing: 'border-box',
+  }
+
+  async function handleDownload() {
+    setLoading(true); setError(null)
+    try {
+      await downloadMonthlySummary(year, month)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{
+      background: 'var(--card)', border: '0.5px solid var(--border)',
+      borderRadius: 8, padding: 16,
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>Monthly Compliance Summary</div>
+      <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
+        Full monthly activity summary for DTAM Phor.Tor reporting assistance
+      </div>
+
+      <div style={{ borderTop: '0.5px solid var(--border)', margin: '14px 0' }} />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+            Year
+          </div>
+          <input
+            type="number"
+            style={inp}
+            value={year}
+            min={2020}
+            max={2099}
+            onChange={e => { setYear(parseInt(e.target.value, 10) || now.getFullYear()); setError(null) }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 10, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+            Month
+          </div>
+          <select
+            style={inp}
+            value={month}
+            onChange={e => { setMonth(parseInt(e.target.value, 10)); setError(null) }}
+          >
+            {MONTHS.map((name, i) => (
+              <option key={i + 1} value={i + 1}>{name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+        <button
+          onClick={handleDownload}
+          disabled={loading}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '6px 13px', fontSize: 11, fontWeight: 500,
+            border: '0.5px solid var(--border)', borderRadius: 6,
+            background: 'transparent',
+            color: loading ? 'var(--text-3)' : 'var(--text-2)',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
+          }}
+        >
+          <FileDown size={12} />
+          {loading ? 'Generating…' : 'Download'}
+        </button>
+        {error && (
+          <span style={{ fontSize: 11, color: '#f87171' }}>{error}</span>
+        )}
+      </div>
     </div>
   )
 }
@@ -255,6 +356,7 @@ export default function GACP() {
           onDownload={downloadTrialPerformanceReport}
           {...sharedStrainProps}
         />
+        <MonthlyReportCard />
       </div>
     </div>
   )
