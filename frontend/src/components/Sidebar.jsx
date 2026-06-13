@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   LayoutDashboard, Dna, FlaskConical, GitBranch, GitMerge, Leaf, Sprout,
-  TestTube2, Package, Droplets, BookOpen, Thermometer, Users, FileCheck2, Shield, Microscope, Building2, Globe, Zap, AlertTriangle, PackageCheck,
+  TestTube2, Package, Droplets, BookOpen, Thermometer, Users, FileCheck2, Shield, Microscope, Building2, Globe, Zap, AlertTriangle, PackageCheck, ShoppingCart,
 } from 'lucide-react'
 
 const NAV = [
@@ -22,6 +22,7 @@ const NAV = [
   { id: 'environmental',   label: 'Environmental',     Icon: Thermometer     },
   { id: 'staff-records',    label: 'Staff & Training',  Icon: Users           },
   { id: 'export-records',   label: 'Export Records',    Icon: PackageCheck    },
+  { id: 'harvest-sales',    label: 'Harvest Sales',     Icon: ShoppingCart    },
   { divider: true },
   { id: 'gacp',              label: 'GACP Reports',      Icon: FileCheck2      },
   { id: 'health-screenings', label: 'Health Screenings', Icon: Shield          },

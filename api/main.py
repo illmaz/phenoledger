@@ -3313,3 +3313,119 @@ def delete_harvest_sale(sale_id: str, auth = Depends(verify_token)):
         .eq("farm_id", auth["farm_id"]) \
         .execute()
     return {"deleted": sale_id}
+
+@app.get("/reports/monthly-summary")
+def monthly_summary_report(year: int, month: int, auth = Depends(verify_token)):
+    from fastapi.responses import Response
+    from api.reports.generator import render_monthly_summary_report
+    from datetime import date
+    import calendar
+
+    if not (1 <= month <= 12):
+        raise HTTPException(status_code=422, detail="month must be 1-12")
+
+    farm_row = auth["client"].table("farms").select("name").eq("id", auth["farm_id"]).execute()
+    farm_name = farm_row.data[0]["name"] if farm_row.data else "Unknown Farm"
+
+    _, last_day = calendar.monthrange(year, month)
+    start = f"{year}-{month:02d}-01"
+    end = f"{year}-{month:02d}-{last_day}"
+    month_label = date(year, month, 1).strftime("%B %Y")
+
+    # COAs this month
+    coa_rows = auth["client"].table("coa_reports") \
+        .select("sample_name, lab_name, report_date, overall_pass_fail, total_thc_pct, total_cbd_pct, strain_id, cannabinoid_results(compound_name, value_pct)") \
+        .eq("farm_id", auth["farm_id"]) \
+        .gte("report_date", start) \
+        .lte("report_date", end) \
+        .is_("deleted_at", "null") \
+        .order("report_date") \
+        .execute()
+    coas = []
+    for r in (coa_rows.data or []):
+        cann = {c["compound_name"]: float(c["value_pct"] or 0) for c in (r.get("cannabinoid_results") or [])}
+        thca = cann.get("THCA")
+        d9 = cann.get("D9-THC", 0)
+        coas.append({
+            "sample_name": r.get("sample_name"),
+            "lab_name": LAB_DISPLAY.get(r.get("lab_name"), r.get("lab_name")),
+            "report_date": r.get("report_date"),
+            "thca": round(thca, 3) if thca else None,
+            "total_thc": round(thca * 0.877 + d9, 2) if thca else None,
+            "overall_pass_fail": r.get("overall_pass_fail"),
+        })
+
+    # Trials harvested this month
+    trial_rows = auth["client"].table("trials") \
+        .select("location_name, grow_type, harvest_date, plant_count, dry_weight_g, strains(name)") \
+        .eq("farm_id", auth["farm_id"]) \
+        .gte("harvest_date", start) \
+        .lte("harvest_date", end) \
+        .is_("deleted_at", "null") \
+        .order("harvest_date") \
+        .execute()
+    trials = []
+    for r in (trial_rows.data or []):
+        trials.append({
+            "strain_name": (r.get("strains") or {}).get("name"),
+            "location_name": r.get("location_name"),
+            "harvest_date": r.get("harvest_date"),
+            "plant_count": r.get("plant_count"),
+            "dry_weight_g": r.get("dry_weight_g"),
+            "grow_type": r.get("grow_type"),
+        })
+
+    # Sales this month
+    sales_rows = auth["client"].table("harvest_sales") \
+        .select("*, strains(name)") \
+        .eq("farm_id", auth["farm_id"]) \
+        .gte("sale_date", start) \
+        .lte("sale_date", end) \
+        .is_("deleted_at", "null") \
+        .order("sale_date") \
+        .execute()
+    sales = []
+    total_grams = 0.0
+    total_revenue = 0.0
+    for r in (sales_rows.data or []):
+        grams = float(r.get("quantity_grams") or 0)
+        price = float(r.get("price_thb") or 0)
+        total_grams += grams
+        total_revenue += price
+        sales.append({
+            "sale_date": r.get("sale_date"),
+            "strain_name": (r.get("strains") or {}).get("name"),
+            "batch_code": r.get("batch_code"),
+            "quantity_grams": grams,
+            "buyer_name": r.get("buyer_name"),
+            "buyer_gacp_cert": r.get("buyer_gacp_cert"),
+            "price_thb": price if price else None,
+        })
+
+    # Input records this month
+    input_rows = auth["client"].table("input_records") \
+        .select("input_date, input_type, product_name, rate, unit, grow_room, operator") \
+        .eq("farm_id", auth["farm_id"]) \
+        .gte("input_date", start) \
+        .lte("input_date", end) \
+        .is_("deleted_at", "null") \
+        .order("input_date") \
+        .execute()
+
+    pdf = render_monthly_summary_report(
+        farm_name=farm_name,
+        month_label=month_label,
+        coa_count=len(coas),
+        total_grams_sold=round(total_grams, 1),
+        total_revenue=round(total_revenue, 2),
+        coas=coas,
+        trials=trials,
+        sales=sales,
+        inputs=input_rows.data or [],
+    )
+    filename = f"MonthlySummary_{year}_{month:02d}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )

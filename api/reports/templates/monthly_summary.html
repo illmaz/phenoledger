@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 20mm 15mm; }
+  body { font-family: Arial, sans-serif; font-size: 10pt; color: #1a1a1a; }
+  .header { border-bottom: 3px solid #2d7a4f; padding-bottom: 8px; margin-bottom: 16px; }
+  .header h1 { font-size: 18pt; color: #2d7a4f; margin: 0 0 4px 0; }
+  .header .subtitle { font-size: 10pt; color: #555; }
+  .meta { display: flex; gap: 40px; margin-bottom: 20px; font-size: 9pt; color: #555; }
+  h2 { font-size: 12pt; color: #2d7a4f; border-bottom: 1px solid #d0e8d8; padding-bottom: 4px; margin: 20px 0 10px 0; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 9pt; }
+  th { background: #2d7a4f; color: white; padding: 6px 8px; text-align: left; }
+  td { padding: 5px 8px; border-bottom: 1px solid #e8f0eb; }
+  tr:nth-child(even) td { background: #f5faf7; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 8pt; font-weight: bold; }
+  .badge-green { background: #d0e8d8; color: #1a5c34; }
+  .badge-red { background: #fde8e8; color: #7a2d2d; }
+  .badge-yellow { background: #fdf6d0; color: #7a6a1a; }
+  .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .summary-card { border: 1px solid #d0e8d8; border-radius: 6px; padding: 12px; background: #f5faf7; }
+  .summary-card .label { font-size: 8pt; color: #555; text-transform: uppercase; letter-spacing: 0.05em; }
+  .summary-card .value { font-size: 16pt; font-weight: bold; color: #2d7a4f; margin: 4px 0 0 0; }
+  .note-box { background: #fdf6d0; border: 1px solid #e8d87a; border-radius: 4px; padding: 10px 12px; font-size: 9pt; color: #5a4a00; margin-bottom: 16px; }
+  .footer { position: fixed; bottom: 0; left: 0; right: 0; font-size: 8pt; color: #aaa; text-align: center; padding: 4px; border-top: 1px solid #eee; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Monthly Compliance Summary</h1>
+  <div class="subtitle">PhenoLedger — Cannabis Certificate of Analysis Intelligence Platform</div>
+</div>
+
+<div class="meta">
+  <span><strong>Farm:</strong> {{ farm_name }}</span>
+  <span><strong>Period:</strong> {{ month_label }}</span>
+  <span><strong>Generated:</strong> {{ generated_date }}</span>
+</div>
+
+<div class="note-box">
+  This summary is prepared to assist with monthly DTAM reporting (Phor.Tor.27, Phor.Tor.28, Phor.Tor.29). It is not a substitute for official government forms. Submit official forms directly to DTAM.
+</div>
+
+<!-- Summary Cards -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="label">COAs This Month</div>
+    <div class="value">{{ coa_count }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Total Sold (g)</div>
+    <div class="value">{{ total_grams_sold }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Revenue (THB)</div>
+    <div class="value">{{ total_revenue }}</div>
+  </div>
+</div>
+
+<!-- COA Reports This Month -->
+<h2>1. Quality Testing (Phor.Tor.28 Reference)</h2>
+{% if coas %}
+<table>
+  <tr><th>Sample Name</th><th>Lab</th><th>Report Date</th><th>THCA%</th><th>Total THC%</th><th>Overall Result</th></tr>
+  {% for c in coas %}
+  <tr>
+    <td>{{ c.sample_name or '—' }}</td>
+    <td>{{ c.lab_name or '—' }}</td>
+    <td>{{ c.report_date or '—' }}</td>
+    <td>{{ c.thca or '—' }}</td>
+    <td>{{ c.total_thc or '—' }}</td>
+    <td>
+      {% if c.overall_pass_fail == 'Pass' %}<span class="badge badge-green">Pass</span>
+      {% elif c.overall_pass_fail == 'Fail' %}<span class="badge badge-red">Fail</span>
+      {% else %}—{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#888">No COA reports this month.</p>
+{% endif %}
+
+<!-- Harvests This Month -->
+<h2>2. Cultivation Activity (Phor.Tor.28 Reference)</h2>
+{% if trials %}
+<table>
+  <tr><th>Strain</th><th>Location</th><th>Harvest Date</th><th>Plants</th><th>Dry Weight (g)</th><th>Grow Type</th></tr>
+  {% for t in trials %}
+  <tr>
+    <td>{{ t.strain_name or '—' }}</td>
+    <td>{{ t.location_name or '—' }}</td>
+    <td>{{ t.harvest_date or '—' }}</td>
+    <td>{{ t.plant_count or '—' }}</td>
+    <td>{{ t.dry_weight_g or '—' }}</td>
+    <td>{{ t.grow_type or '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#888">No harvests recorded this month.</p>
+{% endif %}
+
+<!-- Sales This Month -->
+<h2>3. Sales Records (Phor.Tor.29 Reference)</h2>
+{% if sales %}
+<table>
+  <tr><th>Date</th><th>Strain</th><th>Batch</th><th>Quantity (g)</th><th>Buyer</th><th>Buyer GACP Cert</th><th>Price (THB)</th></tr>
+  {% for s in sales %}
+  <tr>
+    <td>{{ s.sale_date or '—' }}</td>
+    <td>{{ s.strain_name or '—' }}</td>
+    <td>{{ s.batch_code or '—' }}</td>
+    <td>{{ s.quantity_grams }}</td>
+    <td>{{ s.buyer_name }}</td>
+    <td>{{ s.buyer_gacp_cert or '—' }}</td>
+    <td>{{ s.price_thb or '—' }}</td>
+  </tr>
+  {% endfor %}
+  <tr style="font-weight:bold; background:#f5faf7">
+    <td colspan="3">Total</td>
+    <td>{{ total_grams_sold }}g</td>
+    <td colspan="2"></td>
+    <td>{{ total_revenue }} THB</td>
+  </tr>
+</table>
+{% else %}
+<p style="color:#888">No sales recorded this month.</p>
+{% endif %}
+
+<!-- Input Records This Month -->
+<h2>4. Agricultural Inputs (Pest Management Reference)</h2>
+{% if inputs %}
+<table>
+  <tr><th>Date</th><th>Type</th><th>Product</th><th>Rate</th><th>Grow Room</th><th>Operator</th></tr>
+  {% for i in inputs %}
+  <tr>
+    <td>{{ i.input_date or '—' }}</td>
+    <td>{{ i.input_type | title }}</td>
+    <td>{{ i.product_name }}</td>
+    <td>{{ i.rate or '—' }} {{ i.unit or '' }}</td>
+    <td>{{ i.grow_room or '—' }}</td>
+    <td>{{ i.operator or '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p style="color:#888">No input records this month.</p>
+{% endif %}
+
+<div class="footer">
+  PhenoLedger Monthly Compliance Summary · {{ month_label }} · Confidential · For DTAM reporting assistance only
+</div>
+
+</body>
+</html>

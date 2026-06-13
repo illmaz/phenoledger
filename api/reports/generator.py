@@ -100,3 +100,29 @@ def render_batch_record_report(
         generated_date=date.today().strftime("%d %b %Y"),
     )
     return HTML(string=html_content).write_pdf()
+
+def render_monthly_summary_report(
+    farm_name: str,
+    month_label: str,
+    coa_count: int,
+    total_grams_sold: float,
+    total_revenue: float,
+    coas: list[dict],
+    trials: list[dict],
+    sales: list[dict],
+    inputs: list[dict],
+) -> bytes:
+    template = _jinja_env.get_template("monthly_summary.html")
+    html_content = template.render(
+        farm_name=farm_name,
+        month_label=month_label,
+        coa_count=coa_count,
+        total_grams_sold=total_grams_sold,
+        total_revenue=total_revenue,
+        coas=coas,
+        trials=trials,
+        sales=sales,
+        inputs=inputs,
+        generated_date=date.today().strftime("%d %b %Y"),
+    )
+    return HTML(string=html_content).write_pdf()

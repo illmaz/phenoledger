@@ -8,6 +8,7 @@ import Strains from './components/screens/Strains'
 import COALibrary from './components/screens/COALibrary'
 import PesticideResidues from './components/screens/PesticideResidues'
 import ExportRecords from './components/screens/ExportRecords'
+import HarvestSales from './components/screens/HarvestSales'
 import Lineage from './components/screens/Lineage'
 import MotherPlants from './components/screens/MotherPlants'
 import SeedLots from './components/screens/SeedLots'
@@ -42,6 +43,7 @@ const SCREENS = {
   'environmental':  { bc: ['Environmental', 'Monitoring'],            Component: EnvironmentalMonitoring },
   'staff-records':   { bc: ['Staff & Training', 'Records'],            Component: StaffRecords    },
   'export-records':  { bc: ['Export Records', 'Compliance'],           Component: ExportRecords   },
+  'harvest-sales':   { bc: ['Harvest Sales', 'Sales'],                 Component: HarvestSales    },
   'gacp':              { bc: ['GACP Reports', 'Compliance'],           Component: GACP                  },
   'health-screenings': { bc: ['Health Screenings', 'Compliance'],      Component: PlantHealthScreenings },
   'dus-tests':         { bc: ['DUS Testing', 'Compliance'],            Component: DUSTests              },
