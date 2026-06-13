@@ -12,6 +12,14 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function daysAgo(iso) {
+  if (!iso) return 'Never'
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+  if (days === 0) return 'Today'
+  if (days === 1) return '1 day ago'
+  return `${days} days ago`
+}
+
 // ── RegisterModal ─────────────────────────────────────────────────────────────
 
 function RegisterModal({ strains, onClose, onSaved }) {
@@ -231,6 +239,9 @@ function PlantRow({ plant, onDelete, onRetire, last, retiring }) {
       <span style={{ width: 44, textAlign: 'right', fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
         {plant.total_clones_taken != null ? plant.total_clones_taken : '—'}
       </span>
+      <span style={{ width: 88, textAlign: 'right', fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
+        {daysAgo(plant.last_cloned_date)}
+      </span>
       <div style={{ width: 80, display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
         {isRetired ? (
           <Badge variant="gray">Retired</Badge>
@@ -393,6 +404,7 @@ export default function MotherPlants() {
             <span style={{ ...hdr, width: 90 }}>Established</span>
             <span style={{ ...hdr, width: 36, textAlign: 'right' }}>Gen.</span>
             <span style={{ ...hdr, width: 44, textAlign: 'right' }}>Clones</span>
+            <span style={{ ...hdr, width: 88, textAlign: 'right' }}>Last Cloned</span>
             <span style={{ ...hdr, width: 80, textAlign: 'right' }}>Health</span>
             <span style={{ ...hdr, width: 150, textAlign: 'right' }}>HLVd</span>
             <span style={{ ...hdr, width: 52 }} />

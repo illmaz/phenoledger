@@ -167,8 +167,9 @@ function BreedingForm({ strains, onSaved }) {
 
 // ── RecordRow ─────────────────────────────────────────────────────────────────
 
-function RecordRow({ record, onDelete, last }) {
-  const [hovered, setHovered] = useState(false)
+function RecordRow({ record, onDelete, onNavigate, last }) {
+  const [hovered, setHovered]             = useState(false)
+  const [resultHovered, setResultHovered] = useState(false)
 
   return (
     <div
@@ -186,7 +187,19 @@ function RecordRow({ record, onDelete, last }) {
       <span style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
         {record.parent_b?.name ?? <span style={{ color: 'var(--text-3)' }}>selfing</span>}
       </span>
-      <span style={{ width: 130, fontSize: 12, color: 'var(--text)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span
+        onClick={() => record.result_strain && onNavigate('strains')}
+        onMouseEnter={() => setResultHovered(true)}
+        onMouseLeave={() => setResultHovered(false)}
+        style={{
+          width: 130, fontSize: 12, flexShrink: 0,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          cursor: record.result_strain ? 'pointer' : 'default',
+          color: record.result_strain
+            ? (resultHovered ? '#93c5fd' : '#60a5fa')
+            : 'var(--text-3)',
+        }}
+      >
         {record.result_strain?.name ?? '—'}
       </span>
       <span style={{ width: 60, flexShrink: 0 }}>
@@ -221,7 +234,7 @@ function RecordRow({ record, onDelete, last }) {
 
 // ── BreedingRecords ───────────────────────────────────────────────────────────
 
-export default function BreedingRecords() {
+export default function BreedingRecords({ onNavigate }) {
   const [records, setRecords]         = useState(null)
   const [strains, setStrains]         = useState([])
   const [actionError, setActionError] = useState(null)
@@ -307,6 +320,7 @@ export default function BreedingRecords() {
               key={r.id}
               record={r}
               onDelete={handleDelete}
+              onNavigate={onNavigate}
               last={i === records.length - 1}
             />
           ))}

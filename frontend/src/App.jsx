@@ -74,7 +74,7 @@ export default function App() {
           onLogout={handleLogout}
         />
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-          <Component refreshKey={uploadKey} />
+          <Component refreshKey={uploadKey} onNavigate={setActive} />
         </div>
       </div>
     </div>

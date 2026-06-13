@@ -365,8 +365,11 @@ function LotRow({ lot, onEdit, onDelete, last }) {
           <span style={{ color: 'var(--text-3)' }}>—</span>
         )}
       </span>
-      <span style={{ width: 52, textAlign: 'right', fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
-        {lot.quantity_seeds != null ? lot.quantity_seeds.toLocaleString() : '—'}
+      <span style={{ width: 88, textAlign: 'right', flexShrink: 0 }}>
+        {lot.quantity_seeds == null || lot.quantity_seeds === 0
+          ? <Badge variant="warn">Exhausted</Badge>
+          : <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{lot.quantity_seeds.toLocaleString()} seeds</span>
+        }
       </span>
       <span style={{ width: 68, textAlign: 'right', fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }}>
         {fmtGerm(lot.germination_rate)}
@@ -492,7 +495,7 @@ export default function SeedLots() {
             <span style={{ ...hdr, width: 80 }}>Origin</span>
             <span style={{ ...hdr, width: 100 }}>Import Permit</span>
             <span style={{ ...hdr, width: 90 }}>Phyto Cert</span>
-            <span style={{ ...hdr, width: 52, textAlign: 'right' }}>Qty</span>
+            <span style={{ ...hdr, width: 88, textAlign: 'right' }}>Seeds</span>
             <span style={{ ...hdr, width: 68, textAlign: 'right' }}>Germ.</span>
             <span style={{ ...hdr, width: 80 }}>Arrival</span>
             <span style={{ ...hdr, width: 52 }} />

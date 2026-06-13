@@ -176,7 +176,7 @@ function StatusBadgeWithTooltip({ status }) {
 
 // ── StrainCard (grid view) ───────────────────────────────────────────────────
 
-function StrainCard({ strain, thca, status, stability, chemotype, onClick, onDelete }) {
+function StrainCard({ strain, thca, upload_count, last_tested, status, stability, chemotype, onClick, onDelete }) {
   const [hovered, setHovered] = useState(false)
   const barWidth = thca != null ? Math.min((thca / 35) * 100, 100) : 0
 
@@ -200,7 +200,12 @@ function StrainCard({ strain, thca, status, stability, chemotype, onClick, onDel
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)', flex: 1, paddingRight: 6 }}>{strain}</div>
+        <div style={{ flex: 1, paddingRight: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>{strain}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>
+            {last_tested ? `Last tested: ${fmtDate(last_tested)}` : 'Never tested'}
+          </div>
+        </div>
         {status && (
           <div style={{
             width: 7, height: 7, borderRadius: '50%', flexShrink: 0, marginTop: 2,
@@ -218,7 +223,9 @@ function StrainCard({ strain, thca, status, stability, chemotype, onClick, onDel
         <div style={{ height: '100%', width: `${barWidth}%`, background: thcaColor(thca), borderRadius: 3 }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, fontSize: 10 }}>
-        <span style={{ color: 'var(--text-3)' }}>Batch Stability</span>
+        <span style={{ color: 'var(--text-3)' }}>
+          {upload_count != null ? `${upload_count} ${upload_count === 1 ? 'batch' : 'batches'}` : '—'}
+        </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <ChemotypeBadge chemotype={chemotype} />
           <span style={{ color: STATUS_DOT[status] ?? 'var(--text-2)', fontWeight: 500 }}>
@@ -246,7 +253,7 @@ function StrainCard({ strain, thca, status, stability, chemotype, onClick, onDel
 
 // ── StrainRow (list view) ────────────────────────────────────────────────────
 
-function StrainRow({ strain, thca, upload_count, status, stability, chemotype, last, onClick, onDelete }) {
+function StrainRow({ strain, thca, upload_count, last_tested, status, stability, chemotype, last, onClick, onDelete }) {
   const [hovered, setHovered] = useState(false)
 
   async function handleDelete(e) {
@@ -269,9 +276,14 @@ function StrainRow({ strain, thca, upload_count, status, stability, chemotype, l
         transition: 'background 0.1s',
       }}
     >
-      <span style={{ flex: 1, fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {strain}
-      </span>
+      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {strain}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
+          {last_tested ? `Last tested: ${fmtDate(last_tested)}` : 'Never tested'}
+        </div>
+      </div>
       <span style={{ fontSize: 13, fontWeight: 500, color: thcaColor(thca), width: 64, textAlign: 'right', flexShrink: 0 }}>
         {thca != null ? `${thca.toFixed(2)}%` : '—'}
       </span>
@@ -475,6 +487,8 @@ function StrainList({ strains, onSelect, onDelete }) {
               key={s.strain}
               strain={s.strain}
               thca={s.thca}
+              upload_count={s.upload_count}
+              last_tested={s.last_tested}
               status={s.status}
               stability={s.stability}
               chemotype={s.chemotype}
@@ -491,6 +505,7 @@ function StrainList({ strains, onSelect, onDelete }) {
               strain={s.strain}
               thca={s.thca}
               upload_count={s.upload_count}
+              last_tested={s.last_tested}
               status={s.status}
               stability={s.stability}
               chemotype={s.chemotype}
@@ -555,6 +570,7 @@ function BatchTable({ batches }) {
       <div style={{ display: 'flex', gap: 12, paddingBottom: 8, borderBottom: '0.5px solid var(--border)', marginBottom: 2 }}>
         <span style={{ ...hdr, width: 76 }}>Batch</span>
         <span style={{ ...hdr, width: 96 }}>Date</span>
+        <span style={{ ...hdr, width: 96 }}>Lab</span>
         <span style={{ ...hdr, width: 60, textAlign: 'right' }}>THCA%</span>
         <span style={{ ...hdr, width: 72, textAlign: 'right' }}>vs prev</span>
         <span style={{ ...hdr, width: 52, textAlign: 'right' }}>CBD%</span>
@@ -580,10 +596,20 @@ function BatchTable({ batches }) {
               borderBottom: i === batches.length - 1 ? 'none' : '0.5px solid var(--border)',
             }}
           >
-            <span style={{ width: 76, fontFamily: 'monospace', fontSize: 10, color: 'var(--text-3)', flexShrink: 0 }}>
+            <span
+              onClick={b.pdf_url ? () => window.open(b.pdf_url, '_blank') : undefined}
+              style={{
+                width: 76, fontFamily: 'monospace', fontSize: 10, flexShrink: 0,
+                color: b.pdf_url ? '#60a5fa' : 'var(--text-3)',
+                cursor: b.pdf_url ? 'pointer' : 'default',
+              }}
+            >
               {b.report_id.slice(0, 8).toUpperCase()}
             </span>
             <span style={{ ...cell, width: 96 }}>{fmtDate(b.date)}</span>
+            <span style={{ width: 96, fontSize: 12, color: 'var(--text-2)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {b.lab ?? <span style={{ color: 'var(--text-3)' }}>—</span>}
+            </span>
             <span style={{ width: 60, textAlign: 'right', fontSize: 13, fontWeight: 500, color: thcaColor(b.thca), flexShrink: 0 }}>
               {b.thca != null ? `${b.thca.toFixed(2)}%` : '—'}
             </span>

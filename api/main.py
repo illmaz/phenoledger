@@ -628,6 +628,41 @@ def list_strains(limit: int = Query(50, le=200), offset: int = 0, auth = Depends
         compounds_by_strain[sid][r["compound_name"]] = float(r["avg_pct"] or 0)
         if r["compound_name"] == "THCA":
             strains[sid] = r
+    # get latest report date per strain
+    strain_ids = list(strains.keys())
+    last_tested: dict = {}
+    top_terpene: dict = {}
+    if strain_ids:
+        reports = auth["client"].table("coa_reports") \
+            .select("id, strain_id, report_date") \
+            .eq("farm_id", auth["farm_id"]) \
+            .in_("strain_id", strain_ids) \
+            .is_("deleted_at", "null") \
+            .order("report_date", desc=True) \
+            .execute()
+        report_ids_by_strain: dict = {}
+        for rep in (reports.data or []):
+            sid = rep["strain_id"]
+            if sid not in last_tested:
+                last_tested[sid] = rep["report_date"]
+            report_ids_by_strain.setdefault(sid, []).append(rep["id"])
+        all_report_ids = [rep["id"] for rep in (reports.data or [])]
+        if all_report_ids:
+            terp_rows = auth["client"].table("terpene_results") \
+                .select("report_id, compound_name, value_pct") \
+                .in_("report_id", all_report_ids) \
+                .not_.is_("value_pct", "null") \
+                .gt("value_pct", 0) \
+                .execute()
+            from collections import defaultdict
+            terp_totals: dict = defaultdict(lambda: defaultdict(float))
+            for t in (terp_rows.data or []):
+                for sid, rids in report_ids_by_strain.items():
+                    if t["report_id"] in rids:
+                        terp_totals[sid][t["compound_name"]] += float(t["value_pct"] or 0)
+            for sid, totals in terp_totals.items():
+                if totals:
+                    top_terpene[sid] = max(totals, key=totals.__getitem__)
     result = []
     for sid, r in strains.items():
         stability = round(float(r["stability_score"] or 0))
@@ -640,6 +675,8 @@ def list_strains(limit: int = Query(50, le=200), offset: int = 0, auth = Depends
             "stability": stability,
             "sample_type": _infer_sample_type(r["strain_name"]),
             "chemotype": compute_chemotype(compounds_by_strain[sid]),
+            "last_tested": last_tested.get(sid),
+            "top_terpene": top_terpene.get(sid),
         })
     return result
 
@@ -691,7 +728,7 @@ def strain_batches(strain_name: str, auth = Depends(verify_token)):
     if not matching_ids:
         return []
     reports_rows = auth["client"].table("coa_reports") \
-        .select("id, upload_id, report_date, coa_uploads(original_filename, extraction_status, created_at)") \
+        .select("id, upload_id, report_date, lab_name, coa_uploads(original_filename, extraction_status, created_at, s3_key)") \
         .in_("id", matching_ids) \
         .is_("deleted_at", "null") \
         .execute()
@@ -703,6 +740,8 @@ def strain_batches(strain_name: str, auth = Depends(verify_token)):
             "report_id": r["id"],
             "date": r.get("report_date") or upload.get("created_at"),
             "status": upload.get("extraction_status"),
+            "lab": LAB_DISPLAY.get(r.get("lab_name"), r.get("lab_name")),
+            "s3_key": upload.get("s3_key"),
         })
     cann_rows = auth["client"].table("cannabinoid_results") \
         .select("report_id, compound_name, value_pct") \
