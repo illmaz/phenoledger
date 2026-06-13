@@ -356,6 +356,52 @@ def overview(auth = Depends(verify_token)):
         for r in alerts_data
     ]
 
+    # next actions — strains not tested in 60+ days
+    from datetime import datetime, timedelta, timezone as tz
+    sixty_days_ago = (datetime.now(tz.utc) - timedelta(days=60)).date().isoformat()
+    strain_reports = client.table("coa_reports") \
+        .select("strain_id, report_date, strains(name)") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .order("report_date", desc=True) \
+        .execute()
+    latest_by_strain: dict = {}
+    for rep in (strain_reports.data or []):
+        sid = rep["strain_id"]
+        if sid not in latest_by_strain:
+            latest_by_strain[sid] = {"date": rep["report_date"], "name": (rep.get("strains") or {}).get("name", "Unknown")}
+    overdue_strains = [v["name"] for v in latest_by_strain.values() if v["date"] and v["date"] < sixty_days_ago]
+    never_tested_strains = [r["strain_name"] for r in strains_data if r["strain_name"] not in [v["name"] for v in latest_by_strain.values()]]
+    # next actions — mother plants overdue for health screening (90+ days)
+    ninety_days_ago = (datetime.now(tz.utc) - timedelta(days=90)).date().isoformat()
+    mp_rows = client.table("mother_plants") \
+        .select("plant_code, strain_id") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    screening_rows = client.table("plant_health_screenings") \
+        .select("mother_plant_id, test_date") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .order("test_date", desc=True) \
+        .execute()
+    latest_screening: dict = {}
+    for s in (screening_rows.data or []):
+        mid = s["mother_plant_id"]
+        if mid not in latest_screening:
+            latest_screening[mid] = s["test_date"]
+    overdue_mothers = []
+    for mp in (mp_rows.data or []):
+        last = latest_screening.get(mp["id"] if "id" in mp else None)
+        if not last or last < ninety_days_ago:
+            overdue_mothers.append(mp["plant_code"])
+    next_actions = []
+    if overdue_strains:
+        next_actions.append({"type": "strain_overdue", "message": f"{len(overdue_strains)} strain{'s' if len(overdue_strains) > 1 else ''} not tested in 60+ days", "items": overdue_strains})
+    if never_tested_strains:
+        next_actions.append({"type": "strain_never_tested", "message": f"{len(never_tested_strains)} strain{'s' if len(never_tested_strains) > 1 else ''} never tested", "items": never_tested_strains})
+    if overdue_mothers:
+        next_actions.append({"type": "mother_overdue", "message": f"{len(overdue_mothers)} mother plant{'s' if len(overdue_mothers) > 1 else ''} overdue for health screening", "items": overdue_mothers})
     return {
         "strain_count": strain_count,
         "coa_count": coa_count,
@@ -363,6 +409,7 @@ def overview(auth = Depends(verify_token)):
         "flagged_count": len({a["strain"] for a in alerts}),
         "recent_uploads": recent_uploads,
         "consistency": consistency,
+        "next_actions": next_actions,
         "alerts": alerts,
     }
 
@@ -527,7 +574,7 @@ async def upload_coa(file: UploadFile, auth = Depends(verify_token)):
 @app.get("/uploads")
 def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0):
     rows = auth["client"].table("coa_uploads") \
-        .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date, sample_name)") \
+        .select("id, original_filename, extraction_status, created_at, coa_reports(lab_name, report_date, sample_name, cannabinoid_results(compound_name, value_pct))") \
         .eq("farm_id", auth["farm_id"]) \
         .is_("deleted_at", "null") \
         .order("created_at", desc=True) \
@@ -539,6 +586,9 @@ def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0)
         reports = r.get("coa_reports") or []
         lab_raw = reports[0]["lab_name"] if reports else None
         sample_name = reports[0].get("sample_name") if reports else None
+        cannabinoids = reports[0].get("cannabinoid_results") or [] if reports else []
+        thca_row = next((c for c in cannabinoids if c.get("compound_name") == "THCA"), None)
+        thca = round(float(thca_row["value_pct"]), 2) if thca_row and thca_row.get("value_pct") is not None else None
         result.append({
             "id": r["id"],
             "name": sample_name or _display_name(r["original_filename"]),
@@ -546,6 +596,7 @@ def list_uploads(auth = Depends(verify_token), limit: int = 50, offset: int = 0)
             "status": r["extraction_status"],
             "lab": LAB_DISPLAY.get(lab_raw, lab_raw) if lab_raw else None,
             "created_at": reports[0].get("report_date") or r["created_at"] if reports else r["created_at"],
+            "thca": thca,
         })
     return result
 
