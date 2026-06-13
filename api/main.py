@@ -847,6 +847,7 @@ def strain_batches(strain_name: str, auth = Depends(verify_token)):
             "cbd": round(cbd, 4) if cbd is not None else None,
             "top_terpene": top_terp.get(rid),
             "status": m["status"],
+            "notes": m.get("notes"),
         })
     return result
 
@@ -1820,6 +1821,7 @@ def create_breeding_record(payload: BreedingRecordIn, auth = Depends(verify_toke
         "cross_date": str(payload.cross_date) if payload.cross_date else None,
         "seed_count": payload.seed_count,
         "success_rate": payload.success_rate,
+        "status": payload.status,
         "breeding_notes": payload.breeding_notes,
     }).execute()
     return row.data[0]
@@ -1832,7 +1834,7 @@ def update_breeding_record(record_id: str, payload: BreedingRecordUpdate, auth =
     updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if "cross_date" in updates and updates["cross_date"]:
         updates["cross_date"] = str(updates["cross_date"])
-    row = supabase.table("breeding_records").update(updates)         .eq("id", record_id)         .execute()
+    row = supabase.table("breeding_records").update(updates)         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .execute()
     return row.data[0]
 
 @app.delete("/breeding-records/{record_id}")
@@ -1843,6 +1845,27 @@ def delete_breeding_record(record_id: str, auth = Depends(verify_token)):
     supabase.table("breeding_records")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .execute()
     return {"deleted": record_id}
 
+
+# ── Phase 5: Batch Records ────────────────────────────────────────────────────
+class BatchRecordIn(BaseModel):
+    batch_code: str = Field(..., max_length=100)
+    strain_id: Optional[str] = None
+    seed_lot_id: Optional[str] = None
+    mother_plant_id: Optional[str] = None
+    trial_id: Optional[str] = None
+    coa_report_id: Optional[str] = None
+    status: Optional[Literal["planning", "growing", "harvested", "tested", "complete"]] = "planning"
+    notes: Optional[str] = Field(None, max_length=1000)
+
+class BatchRecordUpdate(BaseModel):
+    batch_code: Optional[str] = Field(None, max_length=100)
+    strain_id: Optional[str] = None
+    seed_lot_id: Optional[str] = None
+    mother_plant_id: Optional[str] = None
+    trial_id: Optional[str] = None
+    coa_report_id: Optional[str] = None
+    status: Optional[Literal["planning", "growing", "harvested", "tested", "complete"]] = None
+    notes: Optional[str] = Field(None, max_length=1000)
 
 # ── Phase 4 Extended: Plant Health Screenings ─────────────────────────────────
 
@@ -1994,4 +2017,76 @@ def delete_tissue_culture_record(record_id: str, auth = Depends(verify_token)):
     if not check.data:
         raise HTTPException(status_code=404, detail="tissue culture record not found")
     supabase.table("tissue_culture_records")         .update({"deleted_at": datetime.now(timezone.utc).isoformat()})         .eq("id", record_id)         .eq("farm_id", auth["farm_id"])         .execute()
+    return {"deleted": record_id}
+
+
+# ── Phase 5: Batch Records ────────────────────────────────────────────────────
+@app.get("/batch-records")
+def list_batch_records(limit: int = Query(50, le=200), offset: int = 0, auth = Depends(verify_token)):
+    rows = auth["client"].table("batch_records") \
+        .select("*, strains(name), seed_lots(lot_code), mother_plants(plant_code), trials(location_name, grow_type), coa_reports(sample_name, report_date, lab_name)") \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .order("created_at", desc=True) \
+        .range(offset, offset + limit - 1) \
+        .execute()
+    return rows.data or []
+
+@app.post("/batch-records")
+def create_batch_record(payload: BatchRecordIn, auth = Depends(verify_token)):
+    existing = auth["client"].table("batch_records") \
+        .select("id") \
+        .eq("farm_id", auth["farm_id"]) \
+        .eq("batch_code", payload.batch_code) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if existing.data:
+        raise HTTPException(status_code=409, detail=f"Batch code '{payload.batch_code}' already exists")
+    row = supabase.table("batch_records").insert({
+        "farm_id": auth["farm_id"],
+        "batch_code": payload.batch_code,
+        "strain_id": payload.strain_id,
+        "seed_lot_id": payload.seed_lot_id,
+        "mother_plant_id": payload.mother_plant_id,
+        "trial_id": payload.trial_id,
+        "coa_report_id": payload.coa_report_id,
+        "status": payload.status,
+        "notes": payload.notes,
+    }).execute()
+    return row.data[0]
+
+@app.patch("/batch-records/{record_id}")
+def update_batch_record(record_id: str, payload: BatchRecordUpdate, auth = Depends(verify_token)):
+    check = auth["client"].table("batch_records") \
+        .select("id") \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="batch record not found")
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=422, detail="no fields to update")
+    row = supabase.table("batch_records").update(updates) \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
+    return row.data[0]
+
+@app.delete("/batch-records/{record_id}")
+def delete_batch_record(record_id: str, auth = Depends(verify_token)):
+    check = auth["client"].table("batch_records") \
+        .select("id") \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .is_("deleted_at", "null") \
+        .execute()
+    if not check.data:
+        raise HTTPException(status_code=404, detail="batch record not found")
+    supabase.table("batch_records") \
+        .update({"deleted_at": datetime.now(timezone.utc).isoformat()}) \
+        .eq("id", record_id) \
+        .eq("farm_id", auth["farm_id"]) \
+        .execute()
     return {"deleted": record_id}

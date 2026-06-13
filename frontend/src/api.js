@@ -520,3 +520,38 @@ export async function uploadCOA(file) {
   if (!res.ok) throw new Error(body.detail || 'Upload failed')
   return body
 }
+
+export async function fetchBatchRecords() {
+  const res = await apiFetch(`${BASE}/batch-records`, { headers: await authHeaders() })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+export async function createBatchRecord(data) {
+  const res = await apiFetch(`${BASE}/batch-records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function updateBatchRecord(id, data) {
+  const res = await apiFetch(`${BASE}/batch-records/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...await authHeaders() },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
+
+export async function deleteBatchRecord(id) {
+  const res = await apiFetch(`${BASE}/batch-records/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: await authHeaders(),
+  })
+  if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(b.detail || res.status) }
+  return res.json()
+}
